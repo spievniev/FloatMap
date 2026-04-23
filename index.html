@@ -17,7 +17,7 @@
             background: #181818;
         }
 
-        .column {
+        .main {
             margin: 0 5%;
             height: 100%;
             display: flex;
@@ -31,14 +31,12 @@
         }
 
         .controls {
-            margin-top: 16px;
+            margin-top: 10px;
             display: flex;
         }
 
         #canvas {
             width: 100%;
-            height: auto;
-            aspect-ratio: 16 / 9;
         }
 
         #error {
@@ -59,12 +57,11 @@
     </style>
     <body>
         <div id="error" style="visibility: hidden"></div>
-        <div class="column">
+        <div class="main">
             <div class="spacer"></div>
             <canvas id="canvas"></canvas>
             <div class="spacer">
                 <div class="controls">
-                    <!-- TODO: -->
                 </div>
             </div>
         </div>

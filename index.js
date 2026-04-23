@@ -9,11 +9,11 @@ const Y_MAX = 1;
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
-const toF16 = (() => {
-    let f = new Float16Array([0]);
+const round = (() => {
+    const arr = new Float16Array([0]);
     return (f64) => {
-        f[0] = f64;
-        return f[0];
+        arr[0] = f64;
+        return arr[0];
     };
 })();
 
@@ -39,26 +39,24 @@ let offsetX = 0;
 let offsetY = 0;
 let sizeX = X_MAX - X_MIN;
 let sizeY = Y_MAX - Y_MIN;
-let kX = 0;
-let kY = 0;
+let kx = 0;
+let ky = 0;
 let width, height, image;
+
+const posToDiff = (x, y) => {
+    const x64 = offsetX + (x / width) * sizeX;
+    const y64 = offsetY + (y / height) * sizeY;
+    return [Math.abs(x64 - round(x64)), Math.abs(y64 - round(y64))];
+};
 
 const calibrate = () => {
     if (!width || !height) error("No width or height");
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const x64 = offsetX + (x / width) * sizeX;
-            const y64 = offsetY + (y / height) * sizeY;
-
-            const x16 = toF16(x64);
-            const y16 = toF16(y64);
-
-            const dx = Math.abs(x64 - x16);
-            const dy = Math.abs(y64 - y16);
-
-            kX = Math.max(kX, dx);
-            kY = Math.max(kY, dy);
+            const [dx, dy] = posToDiff(x, y);
+            kx = Math.max(kx, dx);
+            ky = Math.max(ky, dy);
         }
     }
 };
@@ -77,20 +75,17 @@ const render = () => {
     if (!width || !height || !image) error("No width, height, or image");
 
     const getPixelColor = (x, y) => {
-        const x64 = offsetX + (x / width) * sizeX;
-        const y64 = offsetY + (y / height) * sizeY;
+        const [dx, dy] = posToDiff(x, y);
+        const d = (dx / kx + dy / ky) / 2;
 
-        const x16 = toF16(x64);
-        const y16 = toF16(y64);
-
-        const i = (Math.abs(x64 - x16) / kX + Math.abs(y64 - y16) / kY) * 0xff;
-        return [i, i, i];
+        const v = d * 0xff;
+        return [v, v, v];
     };
 
     let i = 0;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const [r, g, b] = getPixelColor(x, y);
+            const [r, g, b] = getPixelColor(x, height - 1 - y);
             image.data[i++] = r;
             image.data[i++] = g;
             image.data[i++] = b;
@@ -128,13 +123,13 @@ window.addEventListener("resize", () => {
     canvas.addEventListener("mousemove", (e) => {
         if (!panning) return;
 
-        const dx = ((startX - e.offsetX) / e.target.width) * sizeX;
-        if (X_MIN <= offsetX + dx && offsetX + dx <= X_MAX - sizeX) offsetX += dx;
-        startX = e.offsetX;
+        const dx = -((e.offsetX - startX) / e.target.width) * sizeX;
+        const dy = ((e.offsetY - startY) / e.target.height) * sizeY;
 
-        // TODO: add speed?
-        const dy = ((startY - e.offsetY) / e.target.height) * sizeY;
-        if (Y_MIN <= offsetY + dy && offsetY + dy <= Y_MAX - sizeY) offsetY += dy;
+        offsetX = clamp(offsetX + dx, X_MIN, X_MAX - sizeX);
+        offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - sizeY);
+
+        startX = e.offsetX;
         startY = e.offsetY;
 
         render();
@@ -146,6 +141,9 @@ window.addEventListener("resize", () => {
 {
     let zoom = 1;
     canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
         zoom = clamp(zoom + Math.sign(delta) * 0.05, 0.0001, 1);
 
