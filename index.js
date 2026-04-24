@@ -1,5 +1,7 @@
 // Constants
 
+const NBSP = "\u00A0";
+
 const X_MIN = 0;
 const X_MAX = 1 << 16;
 const Y_MIN = 0;
@@ -43,9 +45,12 @@ let kx = 0;
 let ky = 0;
 let width, height, image;
 
+const posToFloat = (x, y) => {
+    return [offsetX + (x / width) * sizeX, offsetY + (y / height) * sizeY];
+};
+
 const posToDiff = (x, y) => {
-    const x64 = offsetX + (x / width) * sizeX;
-    const y64 = offsetY + (y / height) * sizeY;
+    const [x64, y64] = posToFloat(x, y);
     return [Math.abs(x64 - round(x64)), Math.abs(y64 - round(y64))];
 };
 
@@ -154,3 +159,18 @@ window.addEventListener("resize", () => {
     });
 }
 
+// Info
+
+const floatText = document.getElementById("float");
+const exactText = document.getElementById("exact");
+if (!floatText || !exactText) error("No text output");
+
+canvas.addEventListener("mousemove", (e) => {
+    const [x64, y64] = posToFloat(e.offsetX, height - 1 - e.offsetY);
+
+    const strX16 = round(x64).toString();
+    const strX64 = x64.toString();
+
+    floatText.textContent = `Float: ${strX16 + NBSP.repeat(strX64.length - strX16.length)} ${round(y64)}`;
+    exactText.textContent = `Exact: ${strX64} ${y64}`;
+});

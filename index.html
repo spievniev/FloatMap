@@ -25,6 +25,11 @@
             align-items: center;
         }
 
+        .column {
+            display: flex;
+            flex-direction: column;
+        }
+
         .spacer {
             flex: 1;
             width: 100%;
@@ -33,6 +38,8 @@
         .controls {
             margin-top: 10px;
             display: flex;
+            flex-direction: row;
+            justify-content: space-between;
         }
 
         #canvas {
@@ -62,6 +69,11 @@
             <canvas id="canvas"></canvas>
             <div class="spacer">
                 <div class="controls">
+                    <div>
+                        <p>Output:</p>
+                        <p id="float"></p>
+                        <p id="exact"></p>
+                    </div>
                 </div>
             </div>
         </div>
