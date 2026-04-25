@@ -1,11 +1,11 @@
 // Constants
 
-const NBSP = "\u00A0";
-
 const X_MIN = 0;
 const X_MAX = 1 << 16;
 const Y_MIN = 0;
 const Y_MAX = 1;
+
+const REMAP_COEFF = 5;
 
 // Utils
 
@@ -37,25 +37,22 @@ if (!canvas) error("No canvas");
 const ctx = canvas.getContext("2d");
 if (!ctx) error("No context 2D");
 
-const yMinEl = document.getElementById("yMin");
-const yMaxEl = document.getElementById("yMax");
-const xMinEl = document.getElementById("xMin");
-const xMaxEl = document.getElementById("xMax");
-if (!yMinEl || !yMaxEl || !xMinEl || !xMaxEl) error("No axis labels");
-
 let offsetX = 0;
 let offsetY = 0;
-let sizeX = X_MAX - X_MIN;
-let sizeY = Y_MAX - Y_MIN;
-let kx = 0;
-let ky = 0;
+let rangeX = X_MAX - X_MIN;
+let rangeY = Y_MAX - Y_MIN;
+let dxMax = 0;
+let dyMax = 0;
 let width, height, image, writeBuffer;
 
-const M = Math.log2(X_MAX) / X_MAX;
-const mapX = (x) => Math.pow(2, M * x);
+const mapX = (() => {
+    const K1 = REMAP_COEFF / X_MAX;
+    const K2 = X_MAX / (Math.pow(2, REMAP_COEFF) - 1);
+    return (x) => (Math.pow(2, K1 * x) - 1) * K2;
+})();
 
-const xScreenToFloat = (x) => Math.floor(mapX(offsetX + (x / width) * sizeX));
-const yScreenToFloat = (y) => offsetY + (y / height) * sizeY;
+const screenToFloatX = (x) => Math.floor(mapX(offsetX + (x / width) * rangeX));
+const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
 
 const floatToDiff = (x64, y64) => {
     const f16 = round(x64 + y64);
@@ -68,14 +65,14 @@ const calibrate = () => {
     if (!width || !height) error("No width or height");
 
     for (let y = 0; y < height; y++) {
-        const y64 = yScreenToFloat(y);
+        const y64 = screenToFloatY(y);
         for (let x = 0; x < width; x++) {
-            const [dx, dy] = floatToDiff(xScreenToFloat(x), y64);
-            kx = Math.max(kx, dx);
-            ky = Math.max(ky, dy);
+            const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
+            dxMax = Math.max(dxMax, dx);
+            dyMax = Math.max(dyMax, dy);
         }
     }
-    if (ky < 1e-9) error("Difference between y values is too small");
+    if (dyMax < 1e-9) error("Difference between y values is too small");
 };
 
 const resize = () => {
@@ -89,30 +86,38 @@ const resize = () => {
     writeBuffer = new Uint32Array(image.data.buffer);
 };
 
-const updateLabels = () => {
-    const yLabel = (y) => {
-        const str = y.toString();
-        if (str.length === 1) return str;
-        return str.substring(1, 7);
+const updateLabels = (() => {
+    const yMinEl = document.getElementById("yMin");
+    const yMaxEl = document.getElementById("yMax");
+    const xMinEl = document.getElementById("xMin");
+    const xMaxEl = document.getElementById("xMax");
+    if (!yMinEl || !yMaxEl || !xMinEl || !xMaxEl) error("No axis labels");
+
+    return () => {
+        const yLabel = (y) => {
+            const str = y.toString();
+            if (str.length === 1) return str;
+            return str.substring(1, 7);
+        };
+
+        const xLabel = (x) => Math.floor(x);
+
+        yMinEl.textContent = yLabel(screenToFloatY(0));
+        yMaxEl.textContent = yLabel(screenToFloatY(height));
+        xMinEl.textContent = xLabel(screenToFloatX(0));
+        xMaxEl.textContent = xLabel(screenToFloatX(width));
     };
-
-    const xLabel = (x) => Math.floor(x);
-
-    yMinEl.textContent = yLabel(yScreenToFloat(0));
-    yMaxEl.textContent = yLabel(yScreenToFloat(height));
-    xMinEl.textContent = xLabel(xScreenToFloat(0));
-    xMaxEl.textContent = xLabel(xScreenToFloat(width));
-};
+})();
 
 const render = () => {
     if (!width || !height || !image || !writeBuffer) error("No width, height, or image");
 
     let i = 0;
     for (let y = 0; y < height; y++) {
-        const y64 = yScreenToFloat(height - 1 - y);
+        const y64 = screenToFloatY(height - 1 - y);
         for (let x = 0; x < width; x++) {
-            const [dx, dy] = floatToDiff(xScreenToFloat(x), y64);
-            const d = kx < 1e-3 ? dy / ky : (dx / kx + dy / ky) / 2;
+            const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
+            const d = dxMax < 1e-3 ? dy / dyMax : (dx / dxMax + dy / dyMax) / 2;
             const v = d * 0xff;
             writeBuffer[i++] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
@@ -149,11 +154,11 @@ window.addEventListener("resize", () => {
     canvas.addEventListener("mousemove", (e) => {
         if (!panning) return;
 
-        const dx = -((e.offsetX - startX) / e.target.width) * sizeX;
-        const dy = ((e.offsetY - startY) / e.target.height) * sizeY;
+        const dx = -((e.offsetX - startX) / e.target.width) * rangeX;
+        const dy = ((e.offsetY - startY) / e.target.height) * rangeY;
 
-        offsetX = clamp(offsetX + dx, X_MIN, X_MAX - sizeX);
-        offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - sizeY);
+        offsetX = clamp(offsetX + dx, X_MIN, X_MAX - rangeX);
+        offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - rangeY);
 
         startX = e.offsetX;
         startY = e.offsetY;
@@ -174,8 +179,8 @@ window.addEventListener("resize", () => {
         const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
         zoom = clamp(zoom + Math.sign(delta) * 0.05, 0.0001, 1);
 
-        sizeX = zoom * (X_MAX - X_MIN);
-        sizeY = zoom * (Y_MAX - Y_MIN);
+        rangeX = zoom * (X_MAX - X_MIN);
+        rangeY = zoom * (Y_MAX - Y_MIN);
 
         updateLabels();
         render();
@@ -189,8 +194,8 @@ const exactText = document.getElementById("exact");
 if (!floatText || !exactText) error("No text output");
 
 canvas.addEventListener("mousemove", (e) => {
-    const x64 = xScreenToFloat(e.offsetX);
-    const y64 = yScreenToFloat(height - 1 - e.offsetY);
+    const x64 = screenToFloatX(e.offsetX);
+    const y64 = screenToFloatY(height - 1 - e.offsetY);
     const f64 = x64 + y64;
     const f16 = round(f64);
 
