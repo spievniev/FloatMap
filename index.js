@@ -49,7 +49,7 @@ let sizeX = X_MAX - X_MIN;
 let sizeY = Y_MAX - Y_MIN;
 let kx = 0;
 let ky = 0;
-let width, height, image;
+let width, height, image, writeBuffer;
 
 const posToFloat = (x, y) => {
     return [Math.floor(offsetX + (x / width) * sizeX), offsetY + (y / height) * sizeY];
@@ -73,7 +73,7 @@ const calibrate = () => {
             ky = Math.max(ky, dy);
         }
     }
-    if (kx < 1e-3 || ky < 1e-9) error("Difference between values is too small");
+    if (ky < 1e-9) error("Difference between y values is too small");
 };
 
 const resize = () => {
@@ -84,6 +84,7 @@ const resize = () => {
     canvas.height = height;
 
     image = ctx.createImageData(width, height);
+    writeBuffer = new Uint32Array(image.data.buffer);
 };
 
 const yLabel = (y) => {
@@ -95,24 +96,19 @@ const yLabel = (y) => {
 const xLabel = (x) => Math.floor(x);
 
 const render = () => {
-    if (!width || !height || !image) error("No width, height, or image");
+    if (!width || !height || !image || !writeBuffer) error("No width, height, or image");
 
     const getPixelColor = (x, y) => {
         const [dx, dy] = posToDiff(x, y);
-        const d = (dx / kx + dy / ky) / 2;
-
+        const d = kx < 1e-3 ? dy / ky : (dx / kx + dy / ky) / 2;
         const v = d * 0xff;
-        return [v, v, v];
+        return (0xff << 24) | (v << 16) | (v << 8) | v;
     };
 
     let i = 0;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const [r, g, b] = getPixelColor(x, height - 1 - y);
-            image.data[i++] = r;
-            image.data[i++] = g;
-            image.data[i++] = b;
-            image.data[i++] = 0xff;
+            writeBuffer[i++] = getPixelColor(x, height - 1 - y);
         }
     }
     ctx.putImageData(image, 0, 0);
