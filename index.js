@@ -54,10 +54,10 @@ let width, height, image, writeBuffer;
 const M = Math.log2(X_MAX) / X_MAX;
 const mapX = (x) => Math.pow(2, M * x);
 
-const posToFloat = (x, y) => [Math.floor(mapX(offsetX + (x / width) * sizeX)), offsetY + (y / height) * sizeY];
+const xScreenToFloat = (x) => Math.floor(mapX(offsetX + (x / width) * sizeX));
+const yScreenToFloat = (y) => offsetY + (y / height) * sizeY;
 
-const posToDiff = (x, y) => {
-    const [x64, y64] = posToFloat(x, y);
+const floatToDiff = (x64, y64) => {
     const f16 = round(x64 + y64);
     const x16 = Math.floor(f16);
     const y16 = f16 - x16;
@@ -68,8 +68,9 @@ const calibrate = () => {
     if (!width || !height) error("No width or height");
 
     for (let y = 0; y < height; y++) {
+        const y64 = yScreenToFloat(y);
         for (let x = 0; x < width; x++) {
-            const [dx, dy] = posToDiff(x, y);
+            const [dx, dy] = floatToDiff(xScreenToFloat(x), y64);
             kx = Math.max(kx, dx);
             ky = Math.max(ky, dy);
         }
@@ -88,40 +89,40 @@ const resize = () => {
     writeBuffer = new Uint32Array(image.data.buffer);
 };
 
-const yLabel = (y) => {
-    const str = y.toString();
-    if (str.length === 1) return str;
-    return str.substring(1, 7);
-};
+const updateLabels = () => {
+    const yLabel = (y) => {
+        const str = y.toString();
+        if (str.length === 1) return str;
+        return str.substring(1, 7);
+    };
 
-const xLabel = (x) => Math.floor(x);
+    const xLabel = (x) => Math.floor(x);
+
+    yMinEl.textContent = yLabel(yScreenToFloat(0));
+    yMaxEl.textContent = yLabel(yScreenToFloat(height));
+    xMinEl.textContent = xLabel(xScreenToFloat(0));
+    xMaxEl.textContent = xLabel(xScreenToFloat(width));
+};
 
 const render = () => {
     if (!width || !height || !image || !writeBuffer) error("No width, height, or image");
 
-    const getPixelColor = (x, y) => {
-        const [dx, dy] = posToDiff(x, y);
-        const d = kx < 1e-3 ? dy / ky : (dx / kx + dy / ky) / 2;
-        const v = d * 0xff;
-        return 0xff000000 | (v << 16) | (v << 8) | v;
-    };
-
     let i = 0;
     for (let y = 0; y < height; y++) {
+        const y64 = yScreenToFloat(height - 1 - y);
         for (let x = 0; x < width; x++) {
-            writeBuffer[i++] = getPixelColor(x, height - 1 - y);
+            const [dx, dy] = floatToDiff(xScreenToFloat(x), y64);
+            const d = kx < 1e-3 ? dy / ky : (dx / kx + dy / ky) / 2;
+            const v = d * 0xff;
+            writeBuffer[i++] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
     }
     ctx.putImageData(image, 0, 0);
-
-    yMinEl.textContent = yLabel(offsetY);
-    yMaxEl.textContent = yLabel(offsetY + sizeY);
-    xMinEl.textContent = xLabel(offsetX);
-    xMaxEl.textContent = xLabel(offsetX + sizeX);
 };
 
 resize();
 calibrate();
+updateLabels();
 render();
 
 window.addEventListener("resize", () => {
@@ -157,6 +158,7 @@ window.addEventListener("resize", () => {
         startX = e.offsetX;
         startY = e.offsetY;
 
+        updateLabels();
         render();
     });
 }
@@ -175,6 +177,7 @@ window.addEventListener("resize", () => {
         sizeX = zoom * (X_MAX - X_MIN);
         sizeY = zoom * (Y_MAX - Y_MIN);
 
+        updateLabels();
         render();
     });
 }
@@ -186,9 +189,10 @@ const exactText = document.getElementById("exact");
 if (!floatText || !exactText) error("No text output");
 
 canvas.addEventListener("mousemove", (e) => {
-    const [x64, y64] = posToFloat(e.offsetX, height - 1 - e.offsetY);
+    const x64 = xScreenToFloat(e.offsetX);
+    const y64 = yScreenToFloat(height - 1 - e.offsetY);
     const f64 = x64 + y64;
-    const f16 = round(x64 + y64);
+    const f16 = round(f64);
 
     exactText.textContent = `Exact: ${f64}`;
     floatText.textContent = `Float: ${f16}`;
