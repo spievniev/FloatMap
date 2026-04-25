@@ -37,6 +37,12 @@ if (!canvas) error("No canvas");
 const ctx = canvas.getContext("2d");
 if (!ctx) error("No context 2D");
 
+const yMinEl = document.getElementById("yMin");
+const yMaxEl = document.getElementById("yMax");
+const xMinEl = document.getElementById("xMin");
+const xMaxEl = document.getElementById("xMax");
+if (!yMinEl || !yMaxEl || !xMinEl || !xMaxEl) error("No axis labels");
+
 let offsetX = 0;
 let offsetY = 0;
 let sizeX = X_MAX - X_MIN;
@@ -76,6 +82,14 @@ const resize = () => {
     image = ctx.createImageData(width, height);
 };
 
+const yLabel = (y) => {
+    const str = y.toString();
+    if (str.length === 1) return str;
+    return str.substring(1, 7);
+};
+
+const xLabel = (x) => Math.floor(x);
+
 const render = () => {
     if (!width || !height || !image) error("No width, height, or image");
 
@@ -98,6 +112,11 @@ const render = () => {
         }
     }
     ctx.putImageData(image, 0, 0);
+
+    yMinEl.textContent = yLabel(offsetY);
+    yMaxEl.textContent = yLabel(offsetY + sizeY);
+    xMinEl.textContent = xLabel(offsetX);
+    xMaxEl.textContent = xLabel(offsetX + sizeX);
 };
 
 resize();

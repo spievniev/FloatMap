@@ -18,7 +18,7 @@
         }
 
         .main {
-            margin: 0 5%;
+            margin: 0 7.5%;
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -42,8 +42,44 @@
             justify-content: space-between;
         }
 
-        #canvas {
+        .canvasContainer {
+            position: relative;
             width: 100%;
+        }
+
+        #canvas {
+            display: block;
+            width: 100%;
+        }
+
+        #yMin {
+            position: absolute;
+            line-height: 1;
+            bottom: 0;
+            left: 0;
+            transform: translateX(-100%);
+            padding-right: 2px;
+        }
+
+        #yMax {
+            position: absolute;
+            line-height: 1;
+            top: 0;
+            left: 0;
+            transform: translateX(-100%);
+            padding-right: 2px;
+        }
+
+        .xLabels {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 2px;
+        }
+
+        .label {
+            font-size: 12px;
         }
 
         #error {
@@ -66,13 +102,20 @@
         <div id="error" style="visibility: hidden"></div>
         <div class="main">
             <div class="spacer"></div>
-            <canvas id="canvas"></canvas>
+            <div class="canvasContainer">
+                <canvas id="canvas"> </canvas>
+                <p id="yMin" class="label">y</p>
+                <p id="yMax" class="label">Y</p>
+            </div>
+            <div class="xLabels">
+                <p id="xMin" class="label">x</p>
+                <p id="xMax" class="label">X</p>
+            </div>
             <div class="spacer">
                 <div class="controls">
                     <div>
-                        <p>Output:</p>
-                        <p id="float"></p>
-                        <p id="exact"></p>
+                        <p id="float">Float: - -</p>
+                        <p id="exact">Exact: - -</p>
                     </div>
                 </div>
             </div>
