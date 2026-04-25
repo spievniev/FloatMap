@@ -52,12 +52,15 @@ let ky = 0;
 let width, height, image;
 
 const posToFloat = (x, y) => {
-    return [offsetX + (x / width) * sizeX, offsetY + (y / height) * sizeY];
+    return [Math.floor(offsetX + (x / width) * sizeX), offsetY + (y / height) * sizeY];
 };
 
 const posToDiff = (x, y) => {
     const [x64, y64] = posToFloat(x, y);
-    return [Math.abs(x64 - round(x64)), Math.abs(y64 - round(y64))];
+    const f16 = round(x64 + y64);
+    const x16 = Math.floor(f16);
+    const y16 = f16 - x16;
+    return [Math.abs(x64 - x16), Math.abs(y64 - y16)];
 };
 
 const calibrate = () => {
@@ -70,6 +73,7 @@ const calibrate = () => {
             ky = Math.max(ky, dy);
         }
     }
+    if (kx < 1e-3 || ky < 1e-9) error("Difference between values is too small");
 };
 
 const resize = () => {
@@ -186,10 +190,9 @@ if (!floatText || !exactText) error("No text output");
 
 canvas.addEventListener("mousemove", (e) => {
     const [x64, y64] = posToFloat(e.offsetX, height - 1 - e.offsetY);
+    const f64 = x64 + y64;
+    const f16 = round(x64 + y64);
 
-    const strX16 = round(x64).toString();
-    const strX64 = x64.toString();
-
-    floatText.textContent = `Float: ${strX16 + NBSP.repeat(strX64.length - strX16.length)} ${round(y64)}`;
-    exactText.textContent = `Exact: ${strX64} ${y64}`;
+    exactText.textContent = `Exact: ${f64}`;
+    floatText.textContent = `Float: ${f16}`;
 });
