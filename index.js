@@ -51,9 +51,10 @@ let kx = 0;
 let ky = 0;
 let width, height, image, writeBuffer;
 
-const posToFloat = (x, y) => {
-    return [Math.floor(offsetX + (x / width) * sizeX), offsetY + (y / height) * sizeY];
-};
+const M = Math.log2(X_MAX) / X_MAX;
+const mapX = (x) => Math.pow(2, M * x);
+
+const posToFloat = (x, y) => [Math.floor(mapX(offsetX + (x / width) * sizeX)), offsetY + (y / height) * sizeY];
 
 const posToDiff = (x, y) => {
     const [x64, y64] = posToFloat(x, y);
@@ -102,7 +103,7 @@ const render = () => {
         const [dx, dy] = posToDiff(x, y);
         const d = kx < 1e-3 ? dy / ky : (dx / kx + dy / ky) / 2;
         const v = d * 0xff;
-        return (0xff << 24) | (v << 16) | (v << 8) | v;
+        return 0xff000000 | (v << 16) | (v << 8) | v;
     };
 
     let i = 0;
