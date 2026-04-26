@@ -59,6 +59,16 @@ let rangeY = Y_MAX - Y_MIN;
 let dxMax = 0;
 let dyMax = 0;
 let width, height, image, writeBuffer;
+let brightness = 0.4;
+
+const brightnessEl = document.getElementById("brightness");
+if (!brightnessEl) error("Cannot find element '#brightness'");
+
+brightnessEl.value = brightness;
+brightnessEl.addEventListener("input", (event) => {
+    brightness = event.target.value;
+    render();
+});
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
@@ -137,7 +147,7 @@ const render = () => {
         for (let x = 0; x < width; x++) {
             const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
             const d = dxMax < 1e-3 ? dy / dyMax : (dx / dxMax + dy / dyMax) / 2;
-            const v = clamp(d, 0, 1) * 0xff;
+            const v = clamp(Math.pow(d, brightness), 0, 1) * 0xff;
             writeBuffer[i++] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
     }
