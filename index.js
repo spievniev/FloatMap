@@ -1,21 +1,3 @@
-// Constants
-
-const X_MIN = 0;
-const X_MAX = 1 << 14;
-const Y_MIN = 0;
-const Y_MAX = 1;
-
-// Utils
-
-const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
-const round = (() => {
-    const arr = new Float16Array([0]);
-    return (f64) => {
-        arr[0] = f64;
-        return arr[0];
-    };
-})();
 
 const error = (msg) => {
     const error = document.getElementById("error");
@@ -26,6 +8,41 @@ const error = (msg) => {
 
     throw new Error(msg);
 };
+
+// Options
+
+const F16 = (() => {
+    const url = new URL(location.href);
+    const f = url.searchParams.get("f");
+    if (f && f !== "16" && f !== "32") error("Invalid value of parameter 'f'");
+
+    const f16 = !f || f === "16";
+
+    const f16El = document.getElementById("f16");
+    const f32El = document.getElementById("f32");
+    if (!f16El || !f32El) error("Cannot find float selection radios: '#f16' and '#f32'");
+
+    if (f16) {
+        f16El.checked = true;
+        f32El.addEventListener("click", () => {
+            url.searchParams.set("f", 32);
+            location.replace(url);
+        });
+    } else {
+        f32El.checked = true;
+        f16El.addEventListener("click", () => {
+            url.searchParams.set("f", 16);
+            location.replace(url);
+        });
+    }
+
+    return f16;
+})();
+
+const X_MIN = 0;
+const X_MAX = F16 ? 1 << 14 : 1 << 28;
+const Y_MIN = 0;
+const Y_MAX = 1;
 
 // Rendering
 
@@ -42,6 +59,16 @@ let rangeY = Y_MAX - Y_MIN;
 let dxMax = 0;
 let dyMax = 0;
 let width, height, image, writeBuffer;
+
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+const round = (() => {
+    const arr = new (F16 ? Float16Array : Float32Array)([0]);
+    return (f64) => {
+        arr[0] = f64;
+        return arr[0];
+    };
+})();
 
 const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
 const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
