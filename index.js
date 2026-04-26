@@ -1,11 +1,9 @@
 // Constants
 
 const X_MIN = 0;
-const X_MAX = 1 << 16;
+const X_MAX = 1 << 14;
 const Y_MIN = 0;
 const Y_MAX = 1;
-
-const REMAP_COEFF = 5;
 
 // Utils
 
@@ -45,13 +43,7 @@ let dxMax = 0;
 let dyMax = 0;
 let width, height, image, writeBuffer;
 
-const mapX = (() => {
-    const K1 = REMAP_COEFF / X_MAX;
-    const K2 = X_MAX / (Math.pow(2, REMAP_COEFF) - 1);
-    return (x) => (Math.pow(2, K1 * x) - 1) * K2;
-})();
-
-const screenToFloatX = (x) => Math.floor(mapX(offsetX + (x / width) * rangeX));
+const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
 const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
 
 const floatToDiff = (x64, y64) => {
@@ -118,7 +110,7 @@ const render = () => {
         for (let x = 0; x < width; x++) {
             const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
             const d = dxMax < 1e-3 ? dy / dyMax : (dx / dxMax + dy / dyMax) / 2;
-            const v = d * 0xff;
+            const v = clamp(d, 0, 1) * 0xff;
             writeBuffer[i++] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
     }
