@@ -20,7 +20,7 @@ const F16 = (() => {
 
     const f16El = document.getElementById("f16");
     const f32El = document.getElementById("f32");
-    if (!f16El || !f32El) error("Cannot find float selection radios: '#f16' and '#f32'");
+    if (!f16El || !f32El) error("No elements '#f16' and '#f32'");
 
     if (f16) {
         f16El.checked = true;
@@ -47,10 +47,10 @@ const Y_MAX = 1;
 // Rendering
 
 const canvas = document.getElementById("canvas");
-if (!canvas) error("No canvas");
+if (!canvas) error("No element '#canvas'");
 
 const ctx = canvas.getContext("2d");
-if (!ctx) error("No context 2D");
+if (!ctx) error("Canvas does not support context 2D");
 
 let offsetX = 0;
 let offsetY = 0;
@@ -62,7 +62,7 @@ let width, height, image, writeBuffer;
 let brightness = 0.4;
 
 const brightnessEl = document.getElementById("brightness");
-if (!brightnessEl) error("Cannot find element '#brightness'");
+if (!brightnessEl) error("No element '#brightness'");
 
 brightnessEl.value = brightness;
 brightnessEl.addEventListener("input", (event) => {
@@ -90,8 +90,19 @@ const floatToDiff = (x64, y64) => {
     return [Math.abs(x64 - x16), Math.abs(y64 - y16)];
 };
 
+const resize = () => {
+    width = canvas.clientWidth;
+    height = canvas.clientHeight;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    image = ctx.createImageData(width, height);
+    writeBuffer = new Uint32Array(image.data.buffer);
+};
+
 const calibrate = () => {
-    if (!width || !height) error("No width or height");
+    if (!width || !height) error("Calibrate called before resize");
 
     for (let y = 0; y < height; y++) {
         const y64 = screenToFloatY(y);
@@ -102,17 +113,6 @@ const calibrate = () => {
         }
     }
     if (dyMax < 1e-9) error("Difference between y values is too small");
-};
-
-const resize = () => {
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    image = ctx.createImageData(width, height);
-    writeBuffer = new Uint32Array(image.data.buffer);
 };
 
 const updateLabels = (() => {
@@ -139,14 +139,14 @@ const updateLabels = (() => {
 })();
 
 const render = () => {
-    if (!width || !height || !image || !writeBuffer) error("No width, height, or image");
+    if (!width || !height || !image || !writeBuffer) error("Render called before resize");
 
     let i = 0;
     for (let y = 0; y < height; y++) {
         const y64 = screenToFloatY(height - 1 - y);
         for (let x = 0; x < width; x++) {
             const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
-            const d = dxMax < 1e-3 ? dy / dyMax : (dx / dxMax + dy / dyMax) / 2;
+            const d = dxMax === 0 ? dy / dyMax : (dx / dxMax + dy / dyMax) / 2;
             const v = clamp(Math.pow(d, brightness), 0, 1) * 0xff;
             writeBuffer[i++] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
@@ -183,8 +183,8 @@ window.addEventListener("resize", () => {
     canvas.addEventListener("mousemove", (e) => {
         if (!panning) return;
 
-        const dx = -((e.offsetX - startX) / e.target.width) * rangeX;
-        const dy = ((e.offsetY - startY) / e.target.height) * rangeY;
+        const dx = -((e.offsetX - startX) / width) * rangeX;
+        const dy = ((e.offsetY - startY) / height) * rangeY;
 
         offsetX = clamp(offsetX + dx, X_MIN, X_MAX - rangeX);
         offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - rangeY);
@@ -220,7 +220,7 @@ window.addEventListener("resize", () => {
 
 const floatText = document.getElementById("float");
 const exactText = document.getElementById("exact");
-if (!floatText || !exactText) error("No text output");
+if (!floatText || !exactText) error("No elements '#float' and '#exact'");
 
 canvas.addEventListener("mousemove", (e) => {
     const x64 = screenToFloatX(e.offsetX);
