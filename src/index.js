@@ -11,36 +11,47 @@ const error = (msg) => {
 
 // Options
 
-const F16 = (() => {
+const FLOAT_SIZE = (() => {
     const url = new URL(location.href);
-    const f = url.searchParams.get("f");
-    if (f && f !== "16" && f !== "32") error("Invalid value of parameter 'f'");
+    const f = url.searchParams.get("f") || "16";
 
-    const f16 = !f || f === "16";
-
+    const f8El = document.getElementById("f8");
     const f16El = document.getElementById("f16");
     const f32El = document.getElementById("f32");
-    if (!f16El || !f32El) error("No elements '#f16' and '#f32'");
+    if (!f8El || !f16El || !f32El) error("No elements '#f8', '#f16', and '#f32'");
 
-    if (f16) {
-        f16El.checked = true;
-        f32El.addEventListener("click", () => {
-            url.searchParams.set("f", 32);
-            location.replace(url);
-        });
-    } else {
-        f32El.checked = true;
-        f16El.addEventListener("click", () => {
-            url.searchParams.set("f", 16);
-            location.replace(url);
-        });
+    const redirect = (f) => () => {
+        url.searchParams.set("f", f);
+        location.replace(url);
+    };
+
+    f8El.addEventListener("click", redirect(8));
+    f16El.addEventListener("click", redirect(16));
+    f32El.addEventListener("click", redirect(32));
+
+    switch (f) {
+        case "8":
+            f8El.checked = true;
+            return 8;
+        case "16":
+            f16El.checked = true;
+            return 16;
+        case "32":
+            f32El.checked = true;
+            return 32;
+        default:
+            error(`Invalid value (${f}) of search parameter 'f'`);
     }
-
-    return f16;
 })();
 
+const FLOAT_RANGES = {
+    8: 1 << 7,
+    16: 1 << 14,
+    32: 1 << 28,
+};
+
 const X_MIN = 0;
-const X_MAX = F16 ? 1 << 14 : 1 << 28;
+const X_MAX = FLOAT_RANGES[FLOAT_SIZE];
 const Y_MIN = 0;
 const Y_MAX = 1;
 
@@ -74,13 +85,61 @@ brightnessEl.addEventListener("input", (event) => {
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
-const round = (() => {
-    const arr = new (F16 ? Float16Array : Float32Array)([0]);
-    return (f64) => {
-        arr[0] = f64;
-        return arr[0];
+const createFloatCast = (exponentBits, mantissaBits) => {
+    if (exponentBits >= 11 || mantissaBits >= 20) {
+        error(`Unsupported exponent (${exponentBits}) & mantissa (${mantissaBits})`);
+    }
+
+    const inputF64 = new Float64Array([0]);
+    const inputU32 = new Uint32Array(inputF64.buffer);
+    const outputU32 = new Uint32Array([0, 0]);
+    const outputF64 = new Float64Array(outputU32.buffer);
+
+    return (x) => {
+        inputF64[0] = x;
+        const upper = inputU32[1];
+
+        const sign = upper & (1 << 31);
+        let exponent = ((upper >> 20) & 0x7ff) - 1023;
+
+        const mantissaF64 = upper & 0xfffff;
+        let mantissa = mantissaF64 >> (20 - mantissaBits);
+        if ((mantissaF64 >> (20 - mantissaBits - 1)) & 1) {
+            mantissa += 1;
+
+            const maxMantissa = (1 << mantissaBits) - 1;
+            if (mantissa > maxMantissa) {
+                mantissa &= maxMantissa;
+                exponent++;
+            }
+        }
+
+        const minExponent = -(1 << (exponentBits - 1));
+        const maxExponent = (1 << (exponentBits - 1)) - 1;
+        if (exponent < minExponent) {
+            mantissa >>= minExponent - exponent;
+            exponent = minExponent;
+        }
+        if (exponent > maxExponent) error(`Exponent too large: ${exponent} > ${maxExponent}`);
+
+        outputU32[1] = sign | ((exponent + 1023) << 20) | (mantissa << (20 - mantissaBits));
+        return outputF64[0];
     };
-})();
+};
+
+const FLOAT_CASTS = {
+    8: createFloatCast(4, 3),
+    16: createFloatCast(5, 10),
+    32: (() => {
+        const arr = new Float32Array([0]);
+        return (f64) => {
+            arr[0] = f64;
+            return arr[0];
+        };
+    })(),
+};
+
+const round = FLOAT_CASTS[FLOAT_SIZE];
 
 const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
 const screenToFloatY = (y) => offsetY + (y / height) * rangeY;

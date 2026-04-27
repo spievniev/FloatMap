@@ -118,6 +118,10 @@
             margin-right: 4px;
         }
 
+        .controlRadio:not(:first-of-type) {
+            margin-left: 16px;
+        }
+
         #github {
             position: absolute;
             top: 12px;
@@ -151,8 +155,10 @@
                     <div>
                         <div class="row">
                             <p class="controlLabel">Float type:</p>
+                            <input type="radio" id="f8" name="f" class="controlRadio" />
+                            <label for="f8">float8</label>
                             <input type="radio" id="f16" name="f" class="controlRadio" />
-                            <label for="f16" style="margin-right: 16px">half (16)</label>
+                            <label for="f16">half (16)</label>
                             <input type="radio" id="f32" name="f" class="controlRadio" />
                             <label for="f32">single (32)</label>
                         </div>
