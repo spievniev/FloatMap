@@ -308,3 +308,18 @@ canvas.addEventListener("mousemove", (e) => {
     exactText.textContent = `Exact: ${f64}`;
     floatText.textContent = `Float: ${f16}`;
 });
+
+const measureRenderTime = () => {
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < 100; i++) {
+        const start = Date.now();
+        render();
+        sum += Date.now() - start;
+        count++;
+    }
+    console.log(`Render time: ${Math.round(sum / count)}ms`);
+};
+
+// measureRenderTime();
+
