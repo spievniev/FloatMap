@@ -1,4 +1,3 @@
-
 const error = (msg) => {
     const error = document.getElementById("error");
     if (!error) return;
@@ -69,19 +68,21 @@ let offsetX = 0;
 let offsetY = 0;
 let rangeX = X_MAX - X_MIN;
 let rangeY = Y_MAX - Y_MIN;
-let dxMax = 0;
-let dyMax = 0;
+let maxErrX = 0;
+let maxErrY = 0;
 let width, height, image, writeBuffer;
 let brightness = 0.4;
 
-const brightnessEl = document.getElementById("brightness");
-if (!brightnessEl) error("No element '#brightness'");
+{
+    const brightnessEl = document.getElementById("brightness");
+    if (!brightnessEl) error("No element '#brightness'");
 
-brightnessEl.value = brightness;
-brightnessEl.addEventListener("input", (event) => {
-    brightness = event.target.value;
-    render();
-});
+    brightnessEl.value = brightness;
+    brightnessEl.addEventListener("input", (event) => {
+        brightness = event.target.value;
+        render();
+    });
+}
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
@@ -139,7 +140,7 @@ const FLOAT_CASTS = {
     })(),
 };
 
-const round = FLOAT_CASTS[FLOAT_SIZE];
+const cast = FLOAT_CASTS[FLOAT_SIZE];
 
 const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
 const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
@@ -147,8 +148,8 @@ const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
 const floatToScreenX = (x) => ((x - offsetX) / rangeX) * width;
 const floatToScreenY = (y) => ((y - offsetY) / rangeY) * height;
 
-const floatToDiff = (x64, y64) => {
-    const f16 = round(x64 + y64);
+const getRoundingError = (x64, y64) => {
+    const f16 = cast(x64 + y64);
     const x16 = Math.floor(f16);
     const y16 = f16 - x16;
     return [Math.abs(x64 - x16), Math.abs(y64 - y16)];
@@ -165,18 +166,18 @@ const resize = () => {
     writeBuffer = new Uint32Array(image.data.buffer);
 };
 
-const calibrate = () => {
-    if (!width || !height) error("Calibrate called before resize");
+const computeMaxErr = () => {
+    if (!width || !height) error("computeMaxErr called before resize");
 
     for (let y = 0; y < height; y++) {
         const y64 = screenToFloatY(y);
         for (let x = 0; x < width; x++) {
-            const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
-            dxMax = Math.max(dxMax, dx);
-            dyMax = Math.max(dyMax, dy);
+            const [errX, errY] = getRoundingError(screenToFloatX(x), y64);
+            maxErrX = Math.max(maxErrX, errX);
+            maxErrY = Math.max(maxErrY, errY);
         }
     }
-    if (dyMax < 1e-9) error("Difference between y values is too small");
+    if (maxErrY < 1e-9) error("Difference between y values is too small");
 };
 
 const updateLabels = (() => {
@@ -186,15 +187,15 @@ const updateLabels = (() => {
     const xMaxEl = document.getElementById("xMax");
     if (!yMinEl || !yMaxEl || !xMinEl || !xMaxEl) error("No axis labels");
 
+    const yLabel = (y) => {
+        const str = y.toString();
+        if (str.length === 1) return str;
+        return str.substring(1, 7);
+    };
+
+    const xLabel = (x) => Math.floor(x);
+
     return () => {
-        const yLabel = (y) => {
-            const str = y.toString();
-            if (str.length === 1) return str;
-            return str.substring(1, 7);
-        };
-
-        const xLabel = (x) => Math.floor(x);
-
         yMinEl.textContent = yLabel(screenToFloatY(0));
         yMaxEl.textContent = yLabel(screenToFloatY(height));
         xMinEl.textContent = xLabel(screenToFloatX(0));
@@ -209,17 +210,17 @@ const render = () => {
     for (let y = 0; y < height; y++) {
         const y64 = screenToFloatY(height - 1 - y);
         for (let x = 0; x < width; x++) {
-            const [dx, dy] = floatToDiff(screenToFloatX(x), y64);
-            const d = dxMax === 0 ? dy / dyMax : (dx / dxMax + dy / dyMax) / 2;
-            const v = clamp(Math.pow(d, brightness), 0, 1) * 0xff;
-            writeBuffer[i++] = 0xff000000 | (v << 16) | (v << 8) | v;
+            const [errX, errY] = getRoundingError(screenToFloatX(x), y64);
+            const normErr = maxErrX === 0 ? errY / maxErrY : (errX / maxErrX + errY / maxErrY) / 2;
+            const intensity = clamp(Math.pow(normErr, brightness), 0, 1) * 0xff;
+            writeBuffer[i++] = 0xff000000 | (intensity << 16) | (intensity << 8) | intensity;
         }
     }
     ctx.putImageData(image, 0, 0);
 };
 
 resize();
-calibrate();
+computeMaxErr();
 updateLabels();
 render();
 
@@ -295,19 +296,24 @@ window.addEventListener("resize", () => {
 
 // Info
 
-const floatText = document.getElementById("float");
-const exactText = document.getElementById("exact");
-if (!floatText || !exactText) error("No elements '#float' and '#exact'");
+{
+    const NBSP = "\u00A0";
 
-canvas.addEventListener("mousemove", (e) => {
-    const x64 = screenToFloatX(e.offsetX);
-    const y64 = screenToFloatY(height - 1 - e.offsetY);
-    const f64 = x64 + y64;
-    const f16 = round(f64);
+    const floatText = document.getElementById("float");
+    const exactText = document.getElementById("exact");
+    if (!floatText || !exactText) error("No elements '#float' and '#exact'");
 
-    exactText.textContent = `Exact: ${f64}`;
-    floatText.textContent = `Float: ${f16}`;
-});
+    canvas.addEventListener("mousemove", (e) => {
+        const x64 = screenToFloatX(e.offsetX);
+        const y64 = screenToFloatY(height - 1 - e.offsetY);
+        const f64 = x64 + y64;
+
+        exactText.textContent = `Double: ${f64}`;
+        floatText.textContent = `Float:${NBSP} ${cast(f64)}`;
+    });
+}
+
+// Render time
 
 const measureRenderTime = () => {
     let sum = 0;
@@ -322,4 +328,3 @@ const measureRenderTime = () => {
 };
 
 // measureRenderTime();
-
