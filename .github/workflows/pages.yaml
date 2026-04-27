@@ -1,0 +1,26 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Prepare files
+        run: cp -r assets src
+
+      - name: Upload
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./src
+
+      - name: Deploy
+        uses: actions/deploy-pages@v5
