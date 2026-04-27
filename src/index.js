@@ -44,6 +44,8 @@ const X_MAX = F16 ? 1 << 14 : 1 << 28;
 const Y_MIN = 0;
 const Y_MAX = 1;
 
+const ZOOM_SPEED = 0.9;
+
 // Rendering
 
 const canvas = document.getElementById("canvas");
@@ -82,6 +84,9 @@ const round = (() => {
 
 const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
 const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
+
+const floatToScreenX = (x) => ((x - offsetX) / rangeX) * width;
+const floatToScreenY = (y) => ((y - offsetY) / rangeY) * height;
 
 const floatToDiff = (x64, y64) => {
     const f16 = round(x64 + y64);
@@ -206,10 +211,23 @@ window.addEventListener("resize", () => {
         e.stopPropagation();
 
         const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
-        zoom = clamp(zoom + Math.sign(delta) * 0.05, 0.0001, 1);
+        const mult = delta < 0 ? ZOOM_SPEED : 1 / ZOOM_SPEED;
+        zoom = clamp(zoom * mult, 0.001, 1);
+
+        const screenX = e.offsetX;
+        const screenY = height - 1 - e.offsetY;
+
+        const floatX = screenToFloatX(screenX);
+        const floatY = screenToFloatY(screenY);
 
         rangeX = zoom * (X_MAX - X_MIN);
         rangeY = zoom * (Y_MAX - Y_MIN);
+
+        const shiftX = ((floatToScreenX(floatX) - screenX) / width) * rangeX;
+        const shiftY = ((floatToScreenY(floatY) - screenY) / height) * rangeY;
+
+        offsetX = clamp(offsetX + shiftX, X_MIN, X_MAX - rangeX);
+        offsetY = clamp(offsetY + shiftY, Y_MIN, Y_MAX - rangeY);
 
         updateLabels();
         render();
