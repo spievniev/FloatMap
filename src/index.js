@@ -50,8 +50,8 @@ const FLOAT_SIZE = (() => {
 
 const FLOAT_RANGES = {
     8: 1 << 7,
-    16: 1 << 15,
-    32: 1 << 28,
+    16: 1 << 14,
+    32: 1 << 27,
 };
 
 const X_MIN = 0;

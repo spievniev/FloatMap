@@ -16,6 +16,7 @@
             height: 100vh;
             color: #f8f8f8;
             background: #181818;
+            font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
         }
 
         .main {
@@ -128,6 +129,22 @@
             top: 12px;
             right: 12px;
         }
+
+        .sup {
+            font-size: 10px;
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .footnote {
+            font-size: 10px;
+            margin-bottom: 4px;
+        }
     </style>
     <body>
         <div id="error" style="visibility: hidden"></div>
@@ -145,9 +162,12 @@
             </div>
             <div class="xLabels">
                 <p id="xMin" class="label">x</p>
-                <p id="xMax" class="label">X</p>
+                <div style="display: flex">
+                    <p id="xMax" class="label">X</p>
+                    <p class="sup">&dagger;</p>
+                </div>
             </div>
-            <div class="spacer">
+            <div class="spacer footer">
                 <div class="controls">
                     <div>
                         <p id="exact">Double: -</p>
@@ -169,6 +189,10 @@
                         </div>
                     </div>
                 </div>
+                <p class="footnote">
+                    &dagger; The x-axis is capped below the maximum representable value because the excluded range
+                    doesn't add new pattern and lower values are more interesting.
+                </p>
             </div>
         </div>
     </body>
