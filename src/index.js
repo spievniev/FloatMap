@@ -260,6 +260,8 @@ window.addEventListener("resize", () => {
 // Zooming
 
 {
+    const MIN_ZOOM = 10 / (X_MAX - X_MIN);
+
     let zoom = 1;
     canvas.addEventListener("wheel", (e) => {
         e.preventDefault();
@@ -267,7 +269,7 @@ window.addEventListener("resize", () => {
 
         const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
         const mult = delta < 0 ? ZOOM_SPEED : 1 / ZOOM_SPEED;
-        zoom = clamp(zoom * mult, 0.001, 1);
+        zoom = clamp(zoom * mult, MIN_ZOOM, 1);
 
         const screenX = e.offsetX;
         const screenY = height - 1 - e.offsetY;
