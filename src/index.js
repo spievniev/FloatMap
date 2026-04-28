@@ -1,3 +1,5 @@
+// Utils
+
 const error = (msg) => {
     const error = document.getElementById("error");
     if (!error) return;
@@ -7,6 +9,9 @@ const error = (msg) => {
 
     throw new Error(msg);
 };
+
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const toUint = (v, min, max) => clamp(Math.round(v * max), min, max);
 
 // Options
 
@@ -84,23 +89,24 @@ let brightness = 0.4;
     });
 }
 
-const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
 const createFloatCast = (exponentBits, mantissaBits) => {
     if (exponentBits >= 11 || mantissaBits >= 20) {
         error(`Unsupported exponent (${exponentBits}) & mantissa (${mantissaBits})`);
     }
 
-    const inputF64 = new Float64Array([0]);
-    const inputU32 = new Uint32Array(inputF64.buffer);
-    const outputU32 = new Uint32Array([0, 0]);
-    const outputF64 = new Float64Array(outputU32.buffer);
+    const maxMantissa = (1 << mantissaBits) - 1;
 
+    const minExponent = -(1 << (exponentBits - 1));
+    const maxExponent = (1 << (exponentBits - 1)) - 1;
+
+    const view = new DataView(new ArrayBuffer(8));
     return (x) => {
-        inputF64[0] = x;
-        const upper = inputU32[1];
+        if (x === 0) return 0;
 
-        const sign = upper & (1 << 31);
+        view.setFloat64(0, x, true);
+        const upper = view.getUint32(4, true);
+
+        const sign = upper >> 31 ? -1 : +1;
         let exponent = ((upper >> 20) & 0x7ff) - 1023;
 
         const mantissaF64 = upper & 0xfffff;
@@ -108,36 +114,25 @@ const createFloatCast = (exponentBits, mantissaBits) => {
         if ((mantissaF64 >> (20 - mantissaBits - 1)) & 1) {
             mantissa += 1;
 
-            const maxMantissa = (1 << mantissaBits) - 1;
             if (mantissa > maxMantissa) {
                 mantissa &= maxMantissa;
                 exponent++;
             }
         }
 
-        const minExponent = -(1 << (exponentBits - 1));
-        const maxExponent = (1 << (exponentBits - 1)) - 1;
         if (exponent < minExponent) {
             mantissa >>= minExponent - exponent;
             exponent = minExponent;
         }
-        if (exponent > maxExponent) error(`Exponent too large: ${exponent} > ${maxExponent}`);
 
-        outputU32[1] = sign | ((exponent + 1023) << 20) | (mantissa << (20 - mantissaBits));
-        return outputF64[0];
+        return sign * 2 ** exponent * (1 + mantissa / (1 << mantissaBits));
     };
 };
 
 const FLOAT_CASTS = {
     8: createFloatCast(4, 3),
-    16: createFloatCast(5, 10),
-    32: (() => {
-        const arr = new Float32Array([0]);
-        return (f64) => {
-            arr[0] = f64;
-            return arr[0];
-        };
-    })(),
+    16: typeof Math.f16round === "function" ? Math.f16round : createFloatCast(5, 10),
+    32: Math.fround,
 };
 
 const cast = FLOAT_CASTS[FLOAT_SIZE];
@@ -212,7 +207,7 @@ const render = () => {
         for (let x = 0; x < width; x++) {
             const [errX, errY] = getRoundingError(screenToFloatX(x), y64);
             const normErr = maxErrX === 0 ? errY / maxErrY : (errX / maxErrX + errY / maxErrY) / 2;
-            const intensity = clamp(Math.pow(normErr, brightness), 0, 1) * 0xff;
+            const intensity = toUint(normErr ** brightness, 0, 0xff);
             writeBuffer[i++] = 0xff000000 | (intensity << 16) | (intensity << 8) | intensity;
         }
     }
