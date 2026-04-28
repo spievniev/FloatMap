@@ -50,7 +50,7 @@ const FLOAT_SIZE = (() => {
 
 const FLOAT_RANGES = {
     8: 1 << 7,
-    16: 1 << 14,
+    16: 1 << 15,
     32: 1 << 28,
 };
 
@@ -59,7 +59,7 @@ const X_MAX = FLOAT_RANGES[FLOAT_SIZE];
 const Y_MIN = 0;
 const Y_MAX = 1;
 
-const ZOOM_SPEED = 0.9;
+const ZOOM_SPEED = 0.85;
 
 // Rendering
 
@@ -123,6 +123,10 @@ const createFloatCast = (exponentBits, mantissaBits) => {
         if (exponent < minExponent) {
             mantissa >>= minExponent - exponent;
             exponent = minExponent;
+        }
+        if (exponent > maxExponent) {
+            mantissa = maxMantissa;
+            exponent = maxExponent;
         }
 
         return sign * 2 ** exponent * (1 + mantissa / (1 << mantissaBits));
