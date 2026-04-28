@@ -44,6 +44,10 @@
             justify-content: space-between;
         }
 
+        .controlsColumn > * {
+            margin-bottom: 4px;
+        }
+
         .canvasContainer {
             position: relative;
             width: 100%;
@@ -60,7 +64,7 @@
             bottom: 0;
             left: 0;
             transform: translateX(-100%);
-            padding-right: 2px;
+            padding-right: 4px;
         }
 
         #yMax {
@@ -69,7 +73,7 @@
             top: 0;
             left: 0;
             transform: translateX(-100%);
-            padding-right: 2px;
+            padding-right: 4px;
         }
 
         .xLabels {
@@ -102,14 +106,19 @@
 
         .center {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+        }
+
+        .subtitle {
+            margin-top: 5px;
+            font-size: 14px;
         }
 
         .row {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
         }
 
         .controlLabel {
@@ -130,9 +139,9 @@
             right: 12px;
         }
 
-        .sup {
+        .superscript {
             font-size: 10px;
-            transform: translateY(-2px);
+            transform: translate(1px, -2px);
         }
 
         .footer {
@@ -143,7 +152,7 @@
 
         .footnote {
             font-size: 10px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
 
         #brightness {
@@ -158,6 +167,10 @@
         <div class="main">
             <div class="spacer center">
                 <h3>Float Accuracy Heatmap</h3>
+                <p class="subtitle">
+                    Visualizes how accurately lower-precision float types represent real values — darker means more
+                    accurate.
+                </p>
             </div>
             <div class="canvasContainer">
                 <canvas id="canvas"> </canvas>
@@ -168,16 +181,16 @@
                 <p id="xMin" class="label">x</p>
                 <div style="display: flex">
                     <p id="xMax" class="label">X</p>
-                    <p class="sup">&dagger;</p>
+                    <p class="superscript">&dagger;</p>
                 </div>
             </div>
             <div class="spacer footer">
                 <div class="controls">
-                    <div>
+                    <div class="controlsColumn">
                         <p id="exact">Double: -</p>
                         <p id="float">Float:&nbsp; -</p>
                     </div>
-                    <div>
+                    <div class="controlsColumn">
                         <div class="row">
                             <p class="controlLabel">Float type:</p>
                             <input type="radio" id="f8" name="f" class="controlRadio" />
