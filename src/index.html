@@ -20,7 +20,7 @@
         }
 
         .main {
-            margin: 0 7.5%;
+            margin: 0 10%;
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -38,7 +38,6 @@
         }
 
         .controls {
-            margin-top: 10px;
             display: flex;
             flex-direction: row;
             justify-content: space-between;
@@ -58,25 +57,38 @@
             width: 100%;
         }
 
-        #yMin {
-            position: absolute;
-            line-height: 1;
-            bottom: 0;
-            left: 0;
-            transform: translateX(-100%);
-            padding-right: 4px;
+        .tick {
+            font-size: 12px;
         }
 
-        #yMax {
+        .label {
+            font-size: 14px;
+        }
+
+        .yAxis {
             position: absolute;
-            line-height: 1;
             top: 0;
             left: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: end;
             transform: translateX(-100%);
             padding-right: 4px;
+            line-height: 1;
         }
 
-        .xLabels {
+        .yAxis .label {
+            writing-mode: sideways-lr;
+        }
+
+        .yAxis .tick {
+            text-align: end;
+        }
+
+        .xAxis {
+            position: relative;
             display: flex;
             flex-direction: row;
             justify-content: space-between;
@@ -84,8 +96,10 @@
             margin-top: 2px;
         }
 
-        .label {
-            font-size: 12px;
+        .xAxis .label {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         #error {
@@ -148,6 +162,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            margin-top: 16px;
         }
 
         .footnote {
@@ -173,21 +188,25 @@
                 </p>
             </div>
             <div class="canvasContainer">
-                <canvas id="canvas"> </canvas>
-                <p id="yMin" class="label">y</p>
-                <p id="yMax" class="label">Y</p>
+                <canvas id="canvas"></canvas>
+                <div class="yAxis">
+                    <p id="yMax" class="tick">Y</p>
+                    <p class="label yLabel">Fractional part</p>
+                    <p id="yMin" class="tick">y</p>
+                </div>
             </div>
-            <div class="xLabels">
-                <p id="xMin" class="label">x</p>
+            <div class="xAxis">
+                <p id="xMin" class="tick">x</p>
+                <p class="label">Integer part</p>
                 <div style="display: flex">
-                    <p id="xMax" class="label">X</p>
+                    <p id="xMax" class="tick">X</p>
                     <p class="superscript">&dagger;</p>
                 </div>
             </div>
             <div class="spacer footer">
                 <div class="controls">
                     <div class="controlsColumn">
-                        <p id="exact">Double: -</p>
+                        <p id="double">Double: -</p>
                         <p id="float">Float:&nbsp; -</p>
                     </div>
                     <div class="controlsColumn">

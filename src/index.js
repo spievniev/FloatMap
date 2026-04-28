@@ -56,6 +56,7 @@ const FLOAT_RANGES = {
 
 const X_MIN = 0;
 const X_MAX = FLOAT_RANGES[FLOAT_SIZE];
+if (!X_MAX) error(`Invalid float size: ${FLOAT_SIZE}`);
 const Y_MIN = 0;
 const Y_MAX = 1;
 
@@ -139,6 +140,7 @@ const FLOAT_CASTS = {
 };
 
 const cast = FLOAT_CASTS[FLOAT_SIZE];
+if (!cast) error(`Invalid float size: ${FLOAT_SIZE}`);
 
 const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
 const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
@@ -308,19 +310,30 @@ window.addEventListener("resize", () => {
 // Info
 
 {
+    const TYPE_NAMES = {
+        8: "Float8",
+        16: "Half",
+        32: "Single",
+    };
+
     const NBSP = "\u00A0";
 
-    const floatText = document.getElementById("float");
-    const exactText = document.getElementById("exact");
-    if (!floatText || !exactText) error("No elements '#float' and '#exact'");
+    const type = TYPE_NAMES[FLOAT_SIZE];
+    if (!type) error(`Invalid float size: ${FLOAT_SIZE}`);
+
+    const space = NBSP.repeat(6 - type.length);
+
+    const floatEl = document.getElementById("float");
+    const doubleEl = document.getElementById("double");
+    if (!floatEl || !doubleEl) error("No elements '#float' and '#double'");
 
     canvas.addEventListener("mousemove", (e) => {
         const x64 = screenToFloatX(e.offsetX);
         const y64 = screenToFloatY(height - 1 - e.offsetY);
         const f64 = x64 + y64;
 
-        exactText.textContent = `Double: ${f64}`;
-        floatText.textContent = `Float:${NBSP} ${cast(f64)}`;
+        doubleEl.textContent = `Double: ${f64}`;
+        floatEl.textContent = `${type}:${space} ${cast(f64)}`;
     });
 }
 
