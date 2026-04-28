@@ -90,9 +90,8 @@ let brightness = 0.4;
 }
 
 const createFloatCast = (exponentBits, mantissaBits) => {
-    if (exponentBits >= 11 || mantissaBits >= 20) {
-        error(`Unsupported exponent (${exponentBits}) & mantissa (${mantissaBits})`);
-    }
+    if (exponentBits > 10) error(`Unsupported exponent: ${exponentBits} > 10`);
+    if (mantissaBits > 19) error(`Unsupported mantissa: ${mantissaBits} > 19`);
 
     const maxMantissa = (1 << mantissaBits) - 1;
 
