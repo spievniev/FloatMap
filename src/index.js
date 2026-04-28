@@ -202,7 +202,7 @@ const updateLabels = (() => {
     };
 })();
 
-const render = () => {
+const renderFrame = () => {
     if (!width || !height || !image || !writeBuffer) error("Render called before resize");
 
     let i = 0;
@@ -217,6 +217,17 @@ const render = () => {
     }
     ctx.putImageData(image, 0, 0);
 };
+
+const render = (() => {
+    let frame = null;
+    return () => {
+        if (frame !== null) cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+            renderFrame();
+            frame = null;
+        });
+    };
+})();
 
 resize();
 computeMaxErr();
@@ -321,7 +332,7 @@ const measureRenderTime = () => {
     let count = 0;
     for (let i = 0; i < 100; i++) {
         const start = Date.now();
-        render();
+        renderFrame();
         sum += Date.now() - start;
         count++;
     }
