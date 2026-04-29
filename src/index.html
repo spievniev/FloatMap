@@ -19,6 +19,28 @@
             font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
         }
 
+        #error {
+            position: absolute;
+            z-index: 999;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ce2323;
+            color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bolder;
+        }
+
+        #github {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+
         .main {
             margin: 0 10%;
             height: 100%;
@@ -27,24 +49,21 @@
             align-items: center;
         }
 
-        .column {
-            display: flex;
-            flex-direction: column;
-        }
-
         .spacer {
             flex: 1;
             width: 100%;
         }
 
-        .controls {
+        .center {
             display: flex;
-            flex-direction: row;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
-        .controlsColumn > * {
-            margin-bottom: 4px;
+        .subtitle {
+            margin-top: 5px;
+            font-size: 14px;
         }
 
         .canvasContainer {
@@ -102,32 +121,26 @@
             transform: translateX(-50%);
         }
 
-        #error {
-            position: absolute;
-            z-index: 999;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #ce2323;
-            color: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            font-weight: bolder;
+        .superscript {
+            font-size: 10px;
+            transform: translate(1px, -2px);
         }
 
-        .center {
+        .footer {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            margin-top: 16px;
         }
 
-        .subtitle {
-            margin-top: 5px;
-            font-size: 14px;
+        .controls {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .controlsColumn > * {
+            margin-bottom: 4px;
         }
 
         .row {
@@ -147,31 +160,13 @@
             margin-left: 16px;
         }
 
-        #github {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-        }
-
-        .superscript {
-            font-size: 10px;
-            transform: translate(1px, -2px);
-        }
-
-        .footer {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            margin-top: 16px;
+        #brightness {
+            width: 100%;
         }
 
         .footnote {
             font-size: 10px;
             margin-bottom: 6px;
-        }
-
-        #brightness {
-            width: 100%;
         }
     </style>
     <body>
