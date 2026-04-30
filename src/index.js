@@ -10,6 +10,14 @@ const error = (msg) => {
     throw new Error(msg);
 };
 
+const getElementsById = (...ids) => {
+    return ids.map((id) => {
+        const element = document.getElementById(id);
+        if (!element) error(`Cannot find element "#${id}"`);
+        return element;
+    });
+};
+
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 const toUint = (v, min, max) => clamp(Math.round(v * max), min, max);
 
@@ -17,22 +25,18 @@ const toUint = (v, min, max) => clamp(Math.round(v * max), min, max);
 
 const FLOAT_SIZE = (() => {
     const url = new URL(location.href);
-    const f = url.searchParams.get("f") || "16";
-
-    const f8El = document.getElementById("f8");
-    const f16El = document.getElementById("f16");
-    const f32El = document.getElementById("f32");
-    if (!f8El || !f16El || !f32El) error("No elements '#f8', '#f16', and '#f32'");
 
     const redirect = (f) => () => {
         url.searchParams.set("f", f);
         location.replace(url);
     };
 
+    const [f8El, f16El, f32El] = getElementsById("f8", "f16", "f32");
     f8El.addEventListener("click", redirect(8));
     f16El.addEventListener("click", redirect(16));
     f32El.addEventListener("click", redirect(32));
 
+    const f = url.searchParams.get("f") || "16";
     switch (f) {
         case "8":
             f8El.checked = true;
@@ -56,7 +60,6 @@ const FLOAT_RANGES = {
 
 const X_MIN = 0;
 const X_MAX = FLOAT_RANGES[FLOAT_SIZE];
-if (!X_MAX) error(`Invalid float size: ${FLOAT_SIZE}`);
 const Y_MIN = 0;
 const Y_MAX = 1;
 
@@ -181,11 +184,7 @@ const computeMaxErr = () => {
 };
 
 const updateLabels = (() => {
-    const yMinEl = document.getElementById("yMin");
-    const yMaxEl = document.getElementById("yMax");
-    const xMinEl = document.getElementById("xMin");
-    const xMaxEl = document.getElementById("xMax");
-    if (!yMinEl || !yMaxEl || !xMinEl || !xMaxEl) error("No axis labels");
+    const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
 
     const yLabel = (y) => {
         const str = y.toString();
@@ -315,25 +314,19 @@ window.addEventListener("resize", () => {
         16: "Half",
         32: "Single",
     };
+    const TYPE = TYPE_NAMES[FLOAT_SIZE];
 
     const NBSP = "\u00A0";
+    const SPACE = NBSP.repeat(6 - TYPE.length);
 
-    const type = TYPE_NAMES[FLOAT_SIZE];
-    if (!type) error(`Invalid float size: ${FLOAT_SIZE}`);
-
-    const space = NBSP.repeat(6 - type.length);
-
-    const floatEl = document.getElementById("float");
-    const doubleEl = document.getElementById("double");
-    if (!floatEl || !doubleEl) error("No elements '#float' and '#double'");
-
+    const [floatEl, doubleEl] = getElementsById("float", "double");
     canvas.addEventListener("mousemove", (e) => {
         const x64 = screenToFloatX(e.offsetX);
         const y64 = screenToFloatY(height - 1 - e.offsetY);
         const f64 = x64 + y64;
 
         doubleEl.textContent = `Double: ${f64}`;
-        floatEl.textContent = `${type}:${space} ${cast(f64)}`;
+        floatEl.textContent = `${TYPE}:${SPACE} ${cast(f64)}`;
     });
 }
 
