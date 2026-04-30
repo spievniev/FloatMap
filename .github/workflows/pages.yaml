@@ -14,13 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Prepare files
-        run: cp -r assets src
+      - name: Build
+        run: ./build.sh
 
       - name: Upload
         uses: actions/upload-pages-artifact@v5
         with:
-          path: ./src
+          path: ./build
 
       - name: Deploy
         uses: actions/deploy-pages@v5

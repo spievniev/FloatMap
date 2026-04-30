@@ -345,3 +345,15 @@ const measureRenderTime = () => {
 };
 
 // measureRenderTime();
+
+// WASM
+
+// const WASM_URL = "./render.wasm";
+
+// const main = async () => {
+//     const { instance } = await WebAssembly.instantiateStreaming(fetch(WASM_URL));
+//     const { render } = instance.exports;
+//     console.log(render(1));
+// };
+
+// main().catch(error);
