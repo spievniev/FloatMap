@@ -348,12 +348,30 @@ const measureRenderTime = () => {
 
 // WASM
 
-// const WASM_URL = "./render.wasm";
+const WASM_URL = "./render.wasm";
 
-// const main = async () => {
-//     const { instance } = await WebAssembly.instantiateStreaming(fetch(WASM_URL));
-//     const { render } = instance.exports;
-//     console.log(render(1));
-// };
+const main = async () => {
+    const imports = {};
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(WASM_URL), {
+        env: new Proxy(imports, {
+            get: (obj, key) => {
+                return (...args) => (key in obj ? obj[key](...args) : error(`Uninitialized import "${key}"`));
+            },
+        }),
+    });
+    const { memory, render } = instance.exports;
 
-// main().catch(error);
+    const fromCStr = (ptr) => {
+        const mem = new Uint8Array(memory.buffer);
+        let end = ptr;
+        while (mem[end] != 0) end++;
+        return new TextDecoder().decode(mem.subarray(ptr, end));
+    };
+
+    imports.print = (ptr) => console.log(fromCStr(ptr));
+    imports.error = (ptr) => error(fromCStr(ptr));
+
+    console.log(render(1));
+};
+
+main().catch((e) => error(e.message));
