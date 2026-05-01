@@ -2,6 +2,7 @@
 
 typedef int i32;
 typedef long long i64;
+typedef unsigned char u8;
 typedef unsigned int u32;
 typedef unsigned long long u64;
 typedef float f32;
@@ -9,6 +10,7 @@ typedef double f64;
 
 static_assert(sizeof(i32) == 4);
 static_assert(sizeof(i64) == 8);
+static_assert(sizeof(u8) == 1);
 static_assert(sizeof(u32) == 4);
 static_assert(sizeof(u64) == 8);
 static_assert(sizeof(f32) == 4);
@@ -31,6 +33,7 @@ extern void print(const char *);
 
 // Utils
 
+static inline f64 max(f64 a, f64 b) { return a > b ? a : b; }
 static inline f64 abs(f64 x) { return x < 0 ? -x : x; }
 
 static inline f64 floor(f64 f) {
@@ -53,6 +56,7 @@ static u32 exponent_bits, mantissa_bits;
 static f64 offset_x, offset_y;
 static f64 range_x, range_y;
 static u32 width, height;
+static f64 max_error_x, max_error_y;
 static u32 *image;
 static u64 image_size_pages = 0;
 
@@ -94,9 +98,42 @@ f64 round_float(f64 x) {
     return *((f64 *) &out);
 }
 
+f64 screen_to_float_x(u32 x) { return floor(offset_x + (x / (f64) width) * range_x); }
+f64 screen_to_float_y(u32 y) { return offset_y + (y / (f64) height) * range_y; }
+
 void init(u32 _exponent_bits, u32 _mantissa_bits) {
     exponent_bits = _exponent_bits;
     mantissa_bits = _mantissa_bits;
+}
+
+void move(f64 _offset_x, f64 _offset_y, f64 _range_x, f64 _range_y) {
+    offset_x = _offset_x;
+    offset_y = _offset_y;
+    range_x = _range_x;
+    range_y = _range_y;
+}
+
+static void compute_max_error() {
+    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0);
+
+    max_error_x = max_error_y = 0;
+    for (u32 screen_y = 0; screen_y < height; screen_y++) {
+        f64 y = screen_to_float_y(screen_y);
+        for (u32 screen_x = 0; screen_x < width; screen_x++) {
+            f64 x = screen_to_float_x(screen_x);
+
+            f64 rounded = round_float(x + y);
+            f64 rounded_x = floor(rounded);
+            f64 rounded_y = rounded - rounded_x;
+
+            f64 error_x = abs(x - rounded_x);
+            f64 error_y = abs(y - rounded_y);
+
+            max_error_x = max(max_error_x, error_x);
+            max_error_y = max(max_error_y, error_y);
+        }
+    }
+    if (max_error_y < 1e-9) error("Maximum Y error is too small");
 }
 
 void resize(u32 _width, u32 _height) {
@@ -117,18 +154,26 @@ void resize(u32 _width, u32 _height) {
     compute_max_error();
 }
 
-void move(f64 _offset_x, f64 _offset_y, f64 _range_x, f64 _range_y) {
-    offset_x = _offset_x;
-    offset_y = _offset_y;
-    range_x = _range_x;
-    range_y = _range_y;
-}
-
 u32 *render() {
-    for (u32 y = 0; y < height; y++) {
-        for (u32 x = 0; x < width; x++) {
-            image[y * width + x]
-                = 0xFF000000 | ((u32) (x / (f64) width * 0xFF)) << 8 | ((u32) (y / (f64) height * 0xFF));
+    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0);
+
+    u32 i = 0;
+    for (u32 screen_y = 0; screen_y < height; screen_y++) {
+        f64 y = screen_to_float_y(height - 1 - screen_y);
+        for (u32 screen_x = 0; screen_x < width; screen_x++) {
+            f64 x = screen_to_float_x(screen_x);
+
+            f64 rounded = round_float(x + y);
+            f64 rounded_x = floor(rounded);
+            f64 rounded_y = rounded - rounded_x;
+
+            f64 error_x = abs(x - rounded_x);
+            f64 error_y = abs(y - rounded_y);
+            f64 normal_error
+                = max_error_x == 0 ? error_y / max_error_y : (error_x / max_error_x + error_y / max_error_y) / 2;
+
+            u8 intensity = normal_error * 0xFF;
+            image[i++] = 0xFF000000 | (intensity << 16) | (intensity << 8) | intensity;
         }
     }
     return image;

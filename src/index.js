@@ -338,7 +338,7 @@ const main = async () => {
             },
         }),
     });
-    const { memory, init, render, resize, move, round_float } = instance.exports;
+    const { memory, init, move, resize, render, round_float } = instance.exports;
 
     const ptrToString = (ptr) => {
         const mem = new Uint8Array(memory.buffer);
@@ -362,8 +362,8 @@ const main = async () => {
             32: [8, 23],
         }[FLOAT_SIZE],
     );
-    resize(width, height);
     move(offsetX, offsetY, rangeX, rangeY);
+    resize(width, height);
     const ptr = render();
     ctx.putImageData(ptrToImage(ptr, width, height), 0, 0);
 
