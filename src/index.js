@@ -1,12 +1,15 @@
 // Utils
 
-const error = (msg) => {
+const showError = (msg) => {
     const error = document.getElementById("error");
     if (!error) return;
 
     error.textContent = "ERROR: " + msg;
     error.style.visibility = "visible";
+};
 
+const error = (msg) => {
+    showError(msg);
     throw new Error(msg);
 };
 
@@ -359,19 +362,31 @@ const main = async () => {
             },
         }),
     });
-    const { memory, render } = instance.exports;
+    const { memory, init, render, resize, move } = instance.exports;
 
-    const fromCStr = (ptr) => {
+    const ptrToString = (ptr) => {
         const mem = new Uint8Array(memory.buffer);
         let end = ptr;
         while (mem[end] != 0) end++;
         return new TextDecoder().decode(mem.subarray(ptr, end));
     };
 
-    imports.print = (ptr) => console.log(fromCStr(ptr));
-    imports.error = (ptr) => error(fromCStr(ptr));
+    const ptrToImage = (ptr, width, height) => {
+        const array = new Uint8ClampedArray(memory.buffer, ptr, width * height * 4);
+        return new ImageData(array, width, height);
+    };
 
-    console.log(render(1));
+    imports.print = (ptr) => console.log(ptrToString(ptr));
+    imports.error = (ptr) => error(ptrToString(ptr));
+
+    init();
+    resize(width, height);
+    move(offsetX, offsetY, rangeX, rangeY);
+    const ptr = render();
+    ctx.putImageData(ptrToImage(ptr, width, height), 0, 0);
 };
 
-main().catch((e) => error(e.message));
+main().catch((e) => {
+    showError(e.message);
+    throw e;
+});
