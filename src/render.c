@@ -18,6 +18,7 @@ static_assert(sizeof(f64) == 8);
 
 // JS functions
 
+extern f64 pow(f64, f64);
 extern void print(const char *);
 [[noreturn]] extern void error(const char *);
 extern void put_image_data(u32 *, u32, u32);
@@ -54,14 +55,22 @@ static inline f64 ceil(f64 f) {
 // State
 
 static u32 exponent_bits = 0, mantissa_bits = 0;
+static f64 brightness = 0.0;
 static f64 offset_x = 0.0, offset_y = 0.0;
 static f64 range_x = 0.0, range_y = 0.0;
 static u32 width = 0, height = 0;
 static f64 max_error_x = 0.0, max_error_y = 0.0;
-static u32 *image;
 static u64 image_size_pages = 0;
+static u32 *image;
 
 // Functions
+
+void init(u32 _exponent_bits, u32 _mantissa_bits) {
+    exponent_bits = _exponent_bits;
+    mantissa_bits = _mantissa_bits;
+}
+
+void set_brightness(f64 _brightness) { brightness = _brightness; }
 
 f64 round_float(f64 x) {
     if (exponent_bits == 8 && mantissa_bits == 23) return (f32) x;
@@ -106,11 +115,6 @@ f64 screen_to_float_y(u32 y) { return offset_y + (y / (f64) height) * range_y; }
 
 f64 float_to_screen_x(f64 x) { return (x - offset_x) / range_x * width; }
 f64 float_to_screen_y(f64 y) { return (y - offset_y) / range_y * height; }
-
-void init(u32 _exponent_bits, u32 _mantissa_bits) {
-    exponent_bits = _exponent_bits;
-    mantissa_bits = _mantissa_bits;
-}
 
 void move(f64 _offset_x, f64 _offset_y, f64 _range_x, f64 _range_y) {
     offset_x = _offset_x;
@@ -161,7 +165,7 @@ void resize(u32 _width, u32 _height) {
 }
 
 void render() {
-    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0);
+    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0 && max_error_y != 0.0 && brightness != 0.0);
 
     u32 i = 0;
     for (u32 screen_y = 0; screen_y < height; screen_y++) {
@@ -178,7 +182,7 @@ void render() {
             f64 normal_error
                 = max_error_x == 0 ? error_y / max_error_y : (error_x / max_error_x + error_y / max_error_y) / 2;
 
-            u8 intensity = normal_error * 0xFF;
+            u8 intensity = pow(normal_error, brightness) * 0xFF;
             image[i++] = 0xFF000000 | (intensity << 16) | (intensity << 8) | intensity;
         }
     }

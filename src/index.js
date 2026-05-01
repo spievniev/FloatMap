@@ -8,7 +8,10 @@ const FLOAT_INFO = {
     32: ["Single", "f32", 8, 23, 1 << 27],
 };
 
+const DEFAULT_BRIGHTNESS = 0.5;
+
 const ZOOM_SPEED = 0.85;
+const ZOOM_MIN_X_RANGE = 5;
 
 const WASM_URL = "./render.wasm";
 
@@ -49,6 +52,8 @@ const loadWasm = async (ctx) => {
         return new TextDecoder().decode(mem.subarray(ptr, end));
     };
 
+    imports.pow = Math.pow;
+
     imports.print = (ptr) => console.log(ptrToString(ptr));
 
     imports.error = (ptr) => {
@@ -74,14 +79,15 @@ const main = async () => {
 
     const {
         init,
-        move,
-        resize,
-        render,
+        set_brightness,
         round_float,
         screen_to_float_x,
         screen_to_float_y,
         float_to_screen_x,
         float_to_screen_y,
+        move,
+        resize,
+        render,
     } = await loadWasm(ctx);
 
     let offsetX = 0;
@@ -89,7 +95,6 @@ const main = async () => {
     let rangeX = X_MAX;
     let rangeY = Y_MAX;
     let width, height;
-    let brightness = 0.4;
 
     // Float buttons controller
     {
@@ -111,9 +116,9 @@ const main = async () => {
     // Brightness controller
     {
         const [brightnessEl] = getElementsById("brightness");
-        brightnessEl.value = brightness;
+        brightnessEl.value = DEFAULT_BRIGHTNESS;
         brightnessEl.addEventListener("input", (event) => {
-            brightness = event.target.value;
+            set_brightness(event.target.value);
             render();
         });
     }
@@ -153,7 +158,7 @@ const main = async () => {
 
     // Zooming
     {
-        const MIN_ZOOM = 10 / X_MAX;
+        const MIN_ZOOM = ZOOM_MIN_X_RANGE / X_MAX;
 
         let zoom = 1;
         canvas.addEventListener("wheel", (e) => {
@@ -221,6 +226,7 @@ const main = async () => {
     })();
 
     init(EXPONENT_BITS, MANTISSA_BITS);
+    set_brightness(DEFAULT_BRIGHTNESS);
     move(offsetX, offsetY, rangeX, rangeY);
     width = canvas.clientWidth;
     height = canvas.clientHeight;
@@ -228,7 +234,6 @@ const main = async () => {
     canvas.height = height;
     resize(width, height);
     render();
-
     updateLabels();
 
     window.addEventListener("resize", () => {
