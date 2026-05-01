@@ -5,7 +5,7 @@ set -euo pipefail
 mkdir -p build
 
 clang --target=wasm32 --no-standard-libraries                   \
-      -Wall -Wextra -pedantic -O3                               \
+      -std=c23 -Wall -Wextra -pedantic -O3                      \
       -Wl,--no-entry,--export-all,--strip-all,--allow-undefined \
       -o build/render.wasm src/render.c
 

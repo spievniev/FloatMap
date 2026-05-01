@@ -7,10 +7,17 @@ typedef unsigned long long u64;
 typedef float f32;
 typedef double f64;
 
+static_assert(sizeof(i32) == 4);
+static_assert(sizeof(i64) == 8);
+static_assert(sizeof(u32) == 4);
+static_assert(sizeof(u64) == 8);
+static_assert(sizeof(f32) == 4);
+static_assert(sizeof(f64) == 8);
+
 // JS functions
 
 extern void print(const char *);
-__attribute__((noreturn)) extern void error(const char *);
+[[noreturn]] extern void error(const char *);
 
 // Assert
 
@@ -88,13 +95,6 @@ f64 round_float(f64 x) {
 }
 
 void init(u32 _exponent_bits, u32 _mantissa_bits) {
-    ASSERT(sizeof(i32) == 4);
-    ASSERT(sizeof(i64) == 8);
-    ASSERT(sizeof(u32) == 4);
-    ASSERT(sizeof(u64) == 8);
-    ASSERT(sizeof(f32) == 4);
-    ASSERT(sizeof(f64) == 8);
-
     exponent_bits = _exponent_bits;
     mantissa_bits = _mantissa_bits;
 }
@@ -124,7 +124,7 @@ void move(f64 _offset_x, f64 _offset_y, f64 _range_x, f64 _range_y) {
     range_y = _range_y;
 }
 
-u32 *render(void) {
+u32 *render() {
     for (u32 y = 0; y < height; y++) {
         for (u32 x = 0; x < width; x++) {
             image[y * width + x]
