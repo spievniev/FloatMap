@@ -1,4 +1,18 @@
-// Utils
+const DEFAULT_FLOAT_SIZE = 16;
+
+const FLOAT_INFO = {
+    // size: display name, element id, exponent bits, mantissa bits, x max
+    8: ["Float8", "f8", 4, 3, 1 << 7],
+    16: ["Half", "f16", 5, 10, 1 << 14],
+    // TODO: why 27 not 28
+    32: ["Single", "f32", 8, 23, 1 << 27],
+};
+
+const ZOOM_SPEED = 0.85;
+
+const WASM_URL = "./render.wasm";
+
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
 const getElementsById = (...ids) => {
     return ids.map((id) => {
@@ -8,80 +22,14 @@ const getElementsById = (...ids) => {
     });
 };
 
-const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
-// Options
-
-const FLOAT_SIZE = (() => {
+const getFloatInfo = () => {
     const url = new URL(location.href);
-
-    const redirect = (f) => () => {
-        url.searchParams.set("f", f);
-        location.replace(url);
-    };
-
-    const [f8El, f16El, f32El] = getElementsById("f8", "f16", "f32");
-    f8El.addEventListener("click", redirect(8));
-    f16El.addEventListener("click", redirect(16));
-    f32El.addEventListener("click", redirect(32));
-
-    const f = url.searchParams.get("f") || "16";
-    switch (f) {
-        case "8":
-            f8El.checked = true;
-            return 8;
-        case "16":
-            f16El.checked = true;
-            return 16;
-        case "32":
-            f32El.checked = true;
-            return 32;
-        default:
-            throw new Error(`Invalid value (${f}) of search parameter 'f'`);
-    }
-})();
-
-const FLOAT_RANGES = {
-    8: 1 << 7,
-    16: 1 << 14,
-    32: 1 << 27,
+    const f = url.searchParams.get("f") || DEFAULT_FLOAT_SIZE;
+    if (!(f in FLOAT_INFO)) throw new Error(`Invalid value (${f}) of search parameter 'f'`);
+    return FLOAT_INFO[f];
 };
 
-const X_MIN = 0;
-const X_MAX = FLOAT_RANGES[FLOAT_SIZE];
-const Y_MIN = 0;
-const Y_MAX = 1;
-
-const ZOOM_SPEED = 0.85;
-
-// Rendering
-
-const [canvas] = getElementsById("canvas");
-
-const ctx = canvas.getContext("2d");
-if (!ctx) throw new Error("Canvas does not support context 2D");
-
-let offsetX = 0;
-let offsetY = 0;
-let rangeX = X_MAX - X_MIN;
-let rangeY = Y_MAX - Y_MIN;
-let maxErrX = 0;
-let maxErrY = 0;
-let width, height, image, writeBuffer;
-let brightness = 0.4;
-
-{
-    const [brightnessEl] = getElementsById("brightness");
-    brightnessEl.value = brightness;
-    brightnessEl.addEventListener("input", (event) => {
-        brightness = event.target.value;
-        render();
-    });
-}
-
-const WASM_URL = "./render.wasm";
-
-const loadWasm = async () => {
+const loadWasm = async (ctx) => {
     const imports = {};
     const env = new Proxy(imports, {
         get: (obj, key) => {
@@ -117,6 +65,13 @@ const loadWasm = async () => {
 };
 
 const main = async () => {
+    const [DISPLAY_NAME, SELECTED_ELEMENT_ID, EXPONENT_BITS, MANTISSA_BITS, X_MAX] = getFloatInfo();
+    const Y_MAX = 1;
+
+    const [canvas] = getElementsById("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas does not support context 2D");
+
     const {
         init,
         move,
@@ -127,57 +82,43 @@ const main = async () => {
         screen_to_float_y,
         float_to_screen_x,
         float_to_screen_y,
-    } = await loadWasm();
+    } = await loadWasm(ctx);
 
-    const updateLabels = (() => {
-        const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
+    let offsetX = 0;
+    let offsetY = 0;
+    let rangeX = X_MAX;
+    let rangeY = Y_MAX;
+    let width, height;
+    let brightness = 0.4;
 
-        const yLabel = (y) => {
-            const str = y.toString();
-            if (str.length === 1) return str;
-            return str.substring(1, 7);
+    // Float buttons controller
+    {
+        const redirect = (f) => () => {
+            const url = new URL(location.href);
+            url.searchParams.set("f", f);
+            location.replace(url);
         };
 
-        const xLabel = (x) => Math.floor(x);
+        const [f8El, f16El, f32El] = getElementsById("f8", "f16", "f32");
+        f8El.addEventListener("click", redirect(8));
+        f16El.addEventListener("click", redirect(16));
+        f32El.addEventListener("click", redirect(32));
 
-        return () => {
-            yMinEl.textContent = yLabel(screen_to_float_y(0));
-            yMaxEl.textContent = yLabel(screen_to_float_y(height));
-            xMinEl.textContent = xLabel(screen_to_float_x(0));
-            xMaxEl.textContent = xLabel(screen_to_float_x(width));
-        };
-    })();
+        const [selected] = getElementsById(SELECTED_ELEMENT_ID);
+        selected.checked = true;
+    }
 
-    init(
-        ...{
-            8: [4, 3],
-            16: [5, 10],
-            32: [8, 23],
-        }[FLOAT_SIZE],
-    );
-    move(offsetX, offsetY, rangeX, rangeY);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    canvas.width = width;
-    canvas.height = height;
-    resize(width, height);
-    render();
-
-    updateLabels();
-
-    window.addEventListener("resize", () => {
-        width = canvas.clientWidth;
-        height = canvas.clientHeight;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        resize(width, height);
-        render();
-    });
+    // Brightness controller
+    {
+        const [brightnessEl] = getElementsById("brightness");
+        brightnessEl.value = brightness;
+        brightnessEl.addEventListener("input", (event) => {
+            brightness = event.target.value;
+            render();
+        });
+    }
 
     // Panning
-
     {
         let panning = false;
         let startX = 0;
@@ -198,8 +139,8 @@ const main = async () => {
             const dx = -((e.offsetX - startX) / width) * rangeX;
             const dy = ((e.offsetY - startY) / height) * rangeY;
 
-            offsetX = clamp(offsetX + dx, X_MIN, X_MAX - rangeX);
-            offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - rangeY);
+            offsetX = clamp(offsetX + dx, 0, X_MAX - rangeX);
+            offsetY = clamp(offsetY + dy, 0, Y_MAX - rangeY);
 
             startX = e.offsetX;
             startY = e.offsetY;
@@ -211,9 +152,8 @@ const main = async () => {
     }
 
     // Zooming
-
     {
-        const MIN_ZOOM = 10 / (X_MAX - X_MIN);
+        const MIN_ZOOM = 10 / X_MAX;
 
         let zoom = 1;
         canvas.addEventListener("wheel", (e) => {
@@ -230,14 +170,14 @@ const main = async () => {
             const floatX = screen_to_float_x(screenX);
             const floatY = screen_to_float_y(screenY);
 
-            rangeX = zoom * (X_MAX - X_MIN);
-            rangeY = zoom * (Y_MAX - Y_MIN);
+            rangeX = zoom * X_MAX;
+            rangeY = zoom * Y_MAX;
 
             const shiftX = ((float_to_screen_x(floatX) - screenX) / width) * rangeX;
             const shiftY = ((float_to_screen_y(floatY) - screenY) / height) * rangeY;
 
-            offsetX = clamp(offsetX + shiftX, X_MIN, X_MAX - rangeX);
-            offsetY = clamp(offsetY + shiftY, Y_MIN, Y_MAX - rangeY);
+            offsetX = clamp(offsetX + shiftX, 0, X_MAX - rangeX);
+            offsetY = clamp(offsetY + shiftY, 0, Y_MAX - rangeY);
 
             move(offsetX, offsetY, rangeX, rangeY);
             render();
@@ -246,17 +186,9 @@ const main = async () => {
     }
 
     // Mouseover info
-
     {
-        const TYPE_NAMES = {
-            8: "Float8",
-            16: "Half",
-            32: "Single",
-        };
-        const TYPE = TYPE_NAMES[FLOAT_SIZE];
-
         const NBSP = "\u00A0";
-        const SPACE = NBSP.repeat(6 - TYPE.length);
+        const SPACE = NBSP.repeat(6 - DISPLAY_NAME.length);
 
         const [floatEl, doubleEl] = getElementsById("float", "double");
         canvas.addEventListener("mousemove", (e) => {
@@ -265,9 +197,50 @@ const main = async () => {
             const f = x + y;
 
             doubleEl.textContent = `Double: ${f}`;
-            floatEl.textContent = `${TYPE}:${SPACE} ${round_float(f)}`;
+            floatEl.textContent = `${DISPLAY_NAME}:${SPACE} ${round_float(f)}`;
         });
     }
+
+    const updateLabels = (() => {
+        const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
+
+        const yLabel = (y) => {
+            const str = y.toString();
+            if (str.length === 1) return str;
+            return str.substring(1, 7);
+        };
+
+        const xLabel = (x) => Math.floor(x);
+
+        return () => {
+            yMinEl.textContent = yLabel(screen_to_float_y(0));
+            yMaxEl.textContent = yLabel(screen_to_float_y(height));
+            xMinEl.textContent = xLabel(screen_to_float_x(0));
+            xMaxEl.textContent = xLabel(screen_to_float_x(width));
+        };
+    })();
+
+    init(EXPONENT_BITS, MANTISSA_BITS);
+    move(offsetX, offsetY, rangeX, rangeY);
+    width = canvas.clientWidth;
+    height = canvas.clientHeight;
+    canvas.width = width;
+    canvas.height = height;
+    resize(width, height);
+    render();
+
+    updateLabels();
+
+    window.addEventListener("resize", () => {
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        resize(width, height);
+        render();
+    });
 };
 
 main().catch((e) => {

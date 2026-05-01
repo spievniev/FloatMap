@@ -53,13 +53,15 @@ static inline f64 ceil(f64 f) {
 
 // State
 
-static u32 exponent_bits, mantissa_bits;
-static f64 offset_x, offset_y;
-static f64 range_x, range_y;
-static u32 width, height;
-static f64 max_error_x, max_error_y;
+static u32 exponent_bits = 0, mantissa_bits = 0;
+static f64 offset_x = 0.0, offset_y = 0.0;
+static f64 range_x = 0.0, range_y = 0.0;
+static u32 width = 0, height = 0;
+static f64 max_error_x = 0.0, max_error_y = 0.0;
 static u32 *image;
 static u64 image_size_pages = 0;
+
+// Functions
 
 f64 round_float(f64 x) {
     if (exponent_bits == 8 && mantissa_bits == 23) return (f32) x;
