@@ -1,9 +1,10 @@
 // Types
 
 typedef int i32;
-typedef unsigned int u32;
 typedef long long i64;
+typedef unsigned int u32;
 typedef unsigned long long u64;
+typedef float f32;
 typedef double f64;
 
 // JS functions
@@ -41,21 +42,61 @@ static inline f64 ceil(f64 f) {
 
 // State
 
-static u32 float_size;
+static u32 exponent_bits, mantissa_bits;
 static f64 offset_x, offset_y;
 static f64 range_x, range_y;
 static u32 width, height;
 static u32 *image;
 static u64 image_size_pages = 0;
 
-void init(u32 _float_size) {
+f64 round_float(f64 x) {
+    if (exponent_bits == 8 && mantissa_bits == 23) return (f32) x;
+
+    if (exponent_bits > 10) error("Unsupported exponent");
+    if (mantissa_bits > 19) error("Unsupported mantissa");
+
+    i32 min_exponent = -(1 << (exponent_bits - 1));
+    i32 max_exponent = (1 << (exponent_bits - 1)) - 1;
+    u32 max_mantissa = (1 << mantissa_bits) - 1;
+
+    u32 upper = *((u64 *) &x) >> 32;
+
+    u32 sign = upper & (1 << 31);
+    i32 exponent = ((upper >> 20) & 0x7FF) - 1023;
+    u32 mantissa = (upper & 0xFFFFF) >> (20 - mantissa_bits);
+
+    if (upper & (1 << (20 - mantissa_bits - 1))) {
+        mantissa++;
+
+        if (mantissa > max_mantissa) {
+            mantissa = 0;
+            exponent++;
+        }
+    }
+
+    if (exponent < min_exponent) {
+        mantissa >>= min_exponent - exponent;
+        exponent = min_exponent;
+    } else if (exponent > max_exponent) {
+        mantissa = max_mantissa;
+        exponent = max_exponent;
+    }
+
+    u32 out_upper = sign | ((exponent + 1023) << 20) | (mantissa << (20 - mantissa_bits));
+    u64 out = ((u64) out_upper) << 32;
+    return *((f64 *) &out);
+}
+
+void init(u32 _exponent_bits, u32 _mantissa_bits) {
     ASSERT(sizeof(i32) == 4);
-    ASSERT(sizeof(u32) == 4);
     ASSERT(sizeof(i64) == 8);
+    ASSERT(sizeof(u32) == 4);
     ASSERT(sizeof(u64) == 8);
+    ASSERT(sizeof(f32) == 4);
     ASSERT(sizeof(f64) == 8);
 
-    float_size = _float_size;
+    exponent_bits = _exponent_bits;
+    mantissa_bits = _mantissa_bits;
 }
 
 void resize(u32 _width, u32 _height) {

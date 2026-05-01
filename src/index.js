@@ -309,30 +309,6 @@ window.addEventListener("resize", () => {
     });
 }
 
-// Info
-
-{
-    const TYPE_NAMES = {
-        8: "Float8",
-        16: "Half",
-        32: "Single",
-    };
-    const TYPE = TYPE_NAMES[FLOAT_SIZE];
-
-    const NBSP = "\u00A0";
-    const SPACE = NBSP.repeat(6 - TYPE.length);
-
-    const [floatEl, doubleEl] = getElementsById("float", "double");
-    canvas.addEventListener("mousemove", (e) => {
-        const x64 = screenToFloatX(e.offsetX);
-        const y64 = screenToFloatY(height - 1 - e.offsetY);
-        const f64 = x64 + y64;
-
-        doubleEl.textContent = `Double: ${f64}`;
-        floatEl.textContent = `${TYPE}:${SPACE} ${cast(f64)}`;
-    });
-}
-
 // Render time
 
 const measureRenderTime = () => {
@@ -362,7 +338,7 @@ const main = async () => {
             },
         }),
     });
-    const { memory, init, render, resize, move } = instance.exports;
+    const { memory, init, render, resize, move, round_float } = instance.exports;
 
     const ptrToString = (ptr) => {
         const mem = new Uint8Array(memory.buffer);
@@ -379,11 +355,41 @@ const main = async () => {
     imports.print = (ptr) => console.log(ptrToString(ptr));
     imports.error = (ptr) => error(ptrToString(ptr));
 
-    init();
+    init(
+        ...{
+            8: [4, 3],
+            16: [5, 10],
+            32: [8, 23],
+        }[FLOAT_SIZE],
+    );
     resize(width, height);
     move(offsetX, offsetY, rangeX, rangeY);
     const ptr = render();
     ctx.putImageData(ptrToImage(ptr, width, height), 0, 0);
+
+    // Mouseover info
+
+    {
+        const TYPE_NAMES = {
+            8: "Float8",
+            16: "Half",
+            32: "Single",
+        };
+        const TYPE = TYPE_NAMES[FLOAT_SIZE];
+
+        const NBSP = "\u00A0";
+        const SPACE = NBSP.repeat(6 - TYPE.length);
+
+        const [floatEl, doubleEl] = getElementsById("float", "double");
+        canvas.addEventListener("mousemove", (e) => {
+            const x64 = screenToFloatX(e.offsetX);
+            const y64 = screenToFloatY(height - 1 - e.offsetY);
+            const f64 = x64 + y64;
+
+            doubleEl.textContent = `Double: ${f64}`;
+            floatEl.textContent = `${TYPE}:${SPACE} ${round_float(f64)}`;
+        });
+    }
 };
 
 main().catch((e) => {
