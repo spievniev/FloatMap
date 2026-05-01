@@ -20,6 +20,7 @@ static_assert(sizeof(f64) == 8);
 
 extern void print(const char *);
 [[noreturn]] extern void error(const char *);
+extern void put_image_data(u32 *, u32, u32);
 
 // Assert
 
@@ -101,6 +102,9 @@ f64 round_float(f64 x) {
 f64 screen_to_float_x(u32 x) { return floor(offset_x + (x / (f64) width) * range_x); }
 f64 screen_to_float_y(u32 y) { return offset_y + (y / (f64) height) * range_y; }
 
+f64 float_to_screen_x(f64 x) { return (x - offset_x) / range_x * width; }
+f64 float_to_screen_y(f64 y) { return (y - offset_y) / range_y * height; }
+
 void init(u32 _exponent_bits, u32 _mantissa_bits) {
     exponent_bits = _exponent_bits;
     mantissa_bits = _mantissa_bits;
@@ -154,7 +158,7 @@ void resize(u32 _width, u32 _height) {
     compute_max_error();
 }
 
-u32 *render() {
+void render() {
     ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0);
 
     u32 i = 0;
@@ -176,5 +180,5 @@ u32 *render() {
             image[i++] = 0xFF000000 | (intensity << 16) | (intensity << 8) | intensity;
         }
     }
-    return image;
+    put_image_data(image, width, height);
 }

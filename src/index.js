@@ -1,28 +1,14 @@
 // Utils
 
-const showError = (msg) => {
-    const error = document.getElementById("error");
-    if (!error) return;
-
-    error.textContent = "ERROR: " + msg;
-    error.style.visibility = "visible";
-};
-
-const error = (msg) => {
-    showError(msg);
-    throw new Error(msg);
-};
-
 const getElementsById = (...ids) => {
     return ids.map((id) => {
         const element = document.getElementById(id);
-        if (!element) error(`Cannot find element "#${id}"`);
+        if (!element) throw new Error(`Cannot find element "#${id}"`);
         return element;
     });
 };
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-const toUint = (v, min, max) => clamp(Math.round(v * max), min, max);
 
 // Options
 
@@ -51,7 +37,7 @@ const FLOAT_SIZE = (() => {
             f32El.checked = true;
             return 32;
         default:
-            error(`Invalid value (${f}) of search parameter 'f'`);
+            throw new Error(`Invalid value (${f}) of search parameter 'f'`);
     }
 })();
 
@@ -70,11 +56,10 @@ const ZOOM_SPEED = 0.85;
 
 // Rendering
 
-const canvas = document.getElementById("canvas");
-if (!canvas) error("No element '#canvas'");
+const [canvas] = getElementsById("canvas");
 
 const ctx = canvas.getContext("2d");
-if (!ctx) error("Canvas does not support context 2D");
+if (!ctx) throw new Error("Canvas does not support context 2D");
 
 let offsetX = 0;
 let offsetY = 0;
@@ -86,9 +71,7 @@ let width, height, image, writeBuffer;
 let brightness = 0.4;
 
 {
-    const brightnessEl = document.getElementById("brightness");
-    if (!brightnessEl) error("No element '#brightness'");
-
+    const [brightnessEl] = getElementsById("brightness");
     brightnessEl.value = brightness;
     brightnessEl.addEventListener("input", (event) => {
         brightness = event.target.value;
@@ -96,264 +79,74 @@ let brightness = 0.4;
     });
 }
 
-const createFloatCast = (exponentBits, mantissaBits) => {
-    if (exponentBits > 10) error(`Unsupported exponent: ${exponentBits} > 10`);
-    if (mantissaBits > 19) error(`Unsupported mantissa: ${mantissaBits} > 19`);
-
-    const maxMantissa = (1 << mantissaBits) - 1;
-
-    const minExponent = -(1 << (exponentBits - 1));
-    const maxExponent = (1 << (exponentBits - 1)) - 1;
-
-    const view = new DataView(new ArrayBuffer(8));
-    return (x) => {
-        if (x === 0) return 0;
-
-        view.setFloat64(0, x, true);
-        const upper = view.getUint32(4, true);
-
-        const sign = upper >> 31 ? -1 : +1;
-        let exponent = ((upper >> 20) & 0x7ff) - 1023;
-
-        const mantissaF64 = upper & 0xfffff;
-        let mantissa = mantissaF64 >> (20 - mantissaBits);
-        if ((mantissaF64 >> (20 - mantissaBits - 1)) & 1) {
-            mantissa += 1;
-
-            if (mantissa > maxMantissa) {
-                mantissa &= maxMantissa;
-                exponent++;
-            }
-        }
-
-        if (exponent < minExponent) {
-            mantissa >>= minExponent - exponent;
-            exponent = minExponent;
-        }
-        if (exponent > maxExponent) {
-            mantissa = maxMantissa;
-            exponent = maxExponent;
-        }
-
-        return sign * 2 ** exponent * (1 + mantissa / (1 << mantissaBits));
-    };
-};
-
-const FLOAT_CASTS = {
-    8: createFloatCast(4, 3),
-    16: typeof Math.f16round === "function" ? Math.f16round : createFloatCast(5, 10),
-    32: Math.fround,
-};
-
-const cast = FLOAT_CASTS[FLOAT_SIZE];
-if (!cast) error(`Invalid float size: ${FLOAT_SIZE}`);
-
-const screenToFloatX = (x) => Math.floor(offsetX + (x / width) * rangeX);
-const screenToFloatY = (y) => offsetY + (y / height) * rangeY;
-
-const floatToScreenX = (x) => ((x - offsetX) / rangeX) * width;
-const floatToScreenY = (y) => ((y - offsetY) / rangeY) * height;
-
-const getRoundingError = (x64, y64) => {
-    const f16 = cast(x64 + y64);
-    const x16 = Math.floor(f16);
-    const y16 = f16 - x16;
-    return [Math.abs(x64 - x16), Math.abs(y64 - y16)];
-};
-
-const resize = () => {
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    image = ctx.createImageData(width, height);
-    writeBuffer = new Uint32Array(image.data.buffer);
-};
-
-const computeMaxErr = () => {
-    if (!width || !height) error("computeMaxErr called before resize");
-
-    for (let y = 0; y < height; y++) {
-        const y64 = screenToFloatY(y);
-        for (let x = 0; x < width; x++) {
-            const [errX, errY] = getRoundingError(screenToFloatX(x), y64);
-            maxErrX = Math.max(maxErrX, errX);
-            maxErrY = Math.max(maxErrY, errY);
-        }
-    }
-    if (maxErrY < 1e-9) error("Difference between y values is too small");
-};
-
-const updateLabels = (() => {
-    const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
-
-    const yLabel = (y) => {
-        const str = y.toString();
-        if (str.length === 1) return str;
-        return str.substring(1, 7);
-    };
-
-    const xLabel = (x) => Math.floor(x);
-
-    return () => {
-        yMinEl.textContent = yLabel(screenToFloatY(0));
-        yMaxEl.textContent = yLabel(screenToFloatY(height));
-        xMinEl.textContent = xLabel(screenToFloatX(0));
-        xMaxEl.textContent = xLabel(screenToFloatX(width));
-    };
-})();
-
-const renderFrame = () => {
-    if (!width || !height || !image || !writeBuffer) error("Render called before resize");
-
-    let i = 0;
-    for (let y = 0; y < height; y++) {
-        const y64 = screenToFloatY(height - 1 - y);
-        for (let x = 0; x < width; x++) {
-            const [errX, errY] = getRoundingError(screenToFloatX(x), y64);
-            const normErr = maxErrX === 0 ? errY / maxErrY : (errX / maxErrX + errY / maxErrY) / 2;
-            const intensity = toUint(normErr ** brightness, 0, 0xff);
-            writeBuffer[i++] = 0xff000000 | (intensity << 16) | (intensity << 8) | intensity;
-        }
-    }
-    ctx.putImageData(image, 0, 0);
-};
-
-const render = (() => {
-    let frame = null;
-    return () => {
-        if (frame !== null) cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(() => {
-            renderFrame();
-            frame = null;
-        });
-    };
-})();
-
-resize();
-computeMaxErr();
-updateLabels();
-render();
-
-window.addEventListener("resize", () => {
-    resize();
-    render();
-});
-
-// Panning
-
-{
-    let panning = false;
-    let startX = 0;
-    let startY = 0;
-
-    canvas.addEventListener("mouseup", () => (panning = false));
-    canvas.addEventListener("mouseout", () => (panning = false));
-
-    canvas.addEventListener("mousedown", (e) => {
-        panning = true;
-        startX = e.offsetX;
-        startY = e.offsetY;
-    });
-
-    canvas.addEventListener("mousemove", (e) => {
-        if (!panning) return;
-
-        const dx = -((e.offsetX - startX) / width) * rangeX;
-        const dy = ((e.offsetY - startY) / height) * rangeY;
-
-        offsetX = clamp(offsetX + dx, X_MIN, X_MAX - rangeX);
-        offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - rangeY);
-
-        startX = e.offsetX;
-        startY = e.offsetY;
-
-        updateLabels();
-        render();
-    });
-}
-
-// Zooming
-
-{
-    const MIN_ZOOM = 10 / (X_MAX - X_MIN);
-
-    let zoom = 1;
-    canvas.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
-        const mult = delta < 0 ? ZOOM_SPEED : 1 / ZOOM_SPEED;
-        zoom = clamp(zoom * mult, MIN_ZOOM, 1);
-
-        const screenX = e.offsetX;
-        const screenY = height - 1 - e.offsetY;
-
-        const floatX = screenToFloatX(screenX);
-        const floatY = screenToFloatY(screenY);
-
-        rangeX = zoom * (X_MAX - X_MIN);
-        rangeY = zoom * (Y_MAX - Y_MIN);
-
-        const shiftX = ((floatToScreenX(floatX) - screenX) / width) * rangeX;
-        const shiftY = ((floatToScreenY(floatY) - screenY) / height) * rangeY;
-
-        offsetX = clamp(offsetX + shiftX, X_MIN, X_MAX - rangeX);
-        offsetY = clamp(offsetY + shiftY, Y_MIN, Y_MAX - rangeY);
-
-        updateLabels();
-        render();
-    });
-}
-
-// Render time
-
-const measureRenderTime = () => {
-    let sum = 0;
-    let count = 0;
-    for (let i = 0; i < 100; i++) {
-        const start = Date.now();
-        renderFrame();
-        sum += Date.now() - start;
-        count++;
-    }
-    console.log(`Render time: ${Math.round(sum / count)}ms`);
-};
-
-// measureRenderTime();
-
-// WASM
-
 const WASM_URL = "./render.wasm";
 
-const main = async () => {
+const loadWasm = async () => {
     const imports = {};
-    const { instance } = await WebAssembly.instantiateStreaming(fetch(WASM_URL), {
-        env: new Proxy(imports, {
-            get: (obj, key) => {
-                return (...args) => (key in obj ? obj[key](...args) : error(`Uninitialized import "${key}"`));
-            },
-        }),
+    const env = new Proxy(imports, {
+        get: (obj, key) => {
+            return (...args) => {
+                if (!(key in obj)) throw new Error(`Uninitialized import "${key}"`);
+                return obj[key](...args);
+            };
+        },
     });
-    const { memory, init, move, resize, render, round_float } = instance.exports;
+
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(WASM_URL), { env });
 
     const ptrToString = (ptr) => {
-        const mem = new Uint8Array(memory.buffer);
+        const mem = new Uint8Array(instance.exports.memory.buffer);
         let end = ptr;
         while (mem[end] != 0) end++;
         return new TextDecoder().decode(mem.subarray(ptr, end));
     };
 
-    const ptrToImage = (ptr, width, height) => {
-        const array = new Uint8ClampedArray(memory.buffer, ptr, width * height * 4);
-        return new ImageData(array, width, height);
+    imports.print = (ptr) => console.log(ptrToString(ptr));
+
+    imports.error = (ptr) => {
+        throw new Error(ptrToString(ptr));
     };
 
-    imports.print = (ptr) => console.log(ptrToString(ptr));
-    imports.error = (ptr) => error(ptrToString(ptr));
+    imports.put_image_data = (ptr, width, height) => {
+        const array = new Uint8ClampedArray(instance.exports.memory.buffer, ptr, width * height * 4);
+        const image = new ImageData(array, width, height);
+        ctx.putImageData(image, 0, 0);
+    };
+
+    return instance.exports;
+};
+
+const main = async () => {
+    const {
+        init,
+        move,
+        resize,
+        render,
+        round_float,
+        screen_to_float_x,
+        screen_to_float_y,
+        float_to_screen_x,
+        float_to_screen_y,
+    } = await loadWasm();
+
+    const updateLabels = (() => {
+        const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
+
+        const yLabel = (y) => {
+            const str = y.toString();
+            if (str.length === 1) return str;
+            return str.substring(1, 7);
+        };
+
+        const xLabel = (x) => Math.floor(x);
+
+        return () => {
+            yMinEl.textContent = yLabel(screen_to_float_y(0));
+            yMaxEl.textContent = yLabel(screen_to_float_y(height));
+            xMinEl.textContent = xLabel(screen_to_float_x(0));
+            xMaxEl.textContent = xLabel(screen_to_float_x(width));
+        };
+    })();
 
     init(
         ...{
@@ -363,9 +156,94 @@ const main = async () => {
         }[FLOAT_SIZE],
     );
     move(offsetX, offsetY, rangeX, rangeY);
+    width = canvas.clientWidth;
+    height = canvas.clientHeight;
+    canvas.width = width;
+    canvas.height = height;
     resize(width, height);
-    const ptr = render();
-    ctx.putImageData(ptrToImage(ptr, width, height), 0, 0);
+    render();
+
+    updateLabels();
+
+    window.addEventListener("resize", () => {
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        resize(width, height);
+        render();
+    });
+
+    // Panning
+
+    {
+        let panning = false;
+        let startX = 0;
+        let startY = 0;
+
+        canvas.addEventListener("mouseup", () => (panning = false));
+        canvas.addEventListener("mouseout", () => (panning = false));
+
+        canvas.addEventListener("mousedown", (e) => {
+            panning = true;
+            startX = e.offsetX;
+            startY = e.offsetY;
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (!panning) return;
+
+            const dx = -((e.offsetX - startX) / width) * rangeX;
+            const dy = ((e.offsetY - startY) / height) * rangeY;
+
+            offsetX = clamp(offsetX + dx, X_MIN, X_MAX - rangeX);
+            offsetY = clamp(offsetY + dy, Y_MIN, Y_MAX - rangeY);
+
+            startX = e.offsetX;
+            startY = e.offsetY;
+
+            move(offsetX, offsetY, rangeX, rangeY);
+            render();
+            updateLabels();
+        });
+    }
+
+    // Zooming
+
+    {
+        const MIN_ZOOM = 10 / (X_MAX - X_MIN);
+
+        let zoom = 1;
+        canvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
+            const mult = delta < 0 ? ZOOM_SPEED : 1 / ZOOM_SPEED;
+            zoom = clamp(zoom * mult, MIN_ZOOM, 1);
+
+            const screenX = e.offsetX;
+            const screenY = height - 1 - e.offsetY;
+
+            const floatX = screen_to_float_x(screenX);
+            const floatY = screen_to_float_y(screenY);
+
+            rangeX = zoom * (X_MAX - X_MIN);
+            rangeY = zoom * (Y_MAX - Y_MIN);
+
+            const shiftX = ((float_to_screen_x(floatX) - screenX) / width) * rangeX;
+            const shiftY = ((float_to_screen_y(floatY) - screenY) / height) * rangeY;
+
+            offsetX = clamp(offsetX + shiftX, X_MIN, X_MAX - rangeX);
+            offsetY = clamp(offsetY + shiftY, Y_MIN, Y_MAX - rangeY);
+
+            move(offsetX, offsetY, rangeX, rangeY);
+            render();
+            updateLabels();
+        });
+    }
 
     // Mouseover info
 
@@ -382,17 +260,22 @@ const main = async () => {
 
         const [floatEl, doubleEl] = getElementsById("float", "double");
         canvas.addEventListener("mousemove", (e) => {
-            const x64 = screenToFloatX(e.offsetX);
-            const y64 = screenToFloatY(height - 1 - e.offsetY);
-            const f64 = x64 + y64;
+            const x = screen_to_float_x(e.offsetX);
+            const y = screen_to_float_y(height - 1 - e.offsetY);
+            const f = x + y;
 
-            doubleEl.textContent = `Double: ${f64}`;
-            floatEl.textContent = `${TYPE}:${SPACE} ${round_float(f64)}`;
+            doubleEl.textContent = `Double: ${f}`;
+            floatEl.textContent = `${TYPE}:${SPACE} ${round_float(f)}`;
         });
     }
 };
 
 main().catch((e) => {
-    showError(e.message);
+    const errorEl = document.getElementById("error");
+    if (!errorEl) return;
+
+    errorEl.textContent = "ERROR: " + e.message;
+    errorEl.style.visibility = "visible";
+
     throw e;
 });
