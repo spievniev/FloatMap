@@ -4,11 +4,10 @@ const FLOAT_INFO = {
     // size: display name, element id, exponent bits, mantissa bits, x max
     8: ["Float8", "f8", 4, 3, 1 << 7],
     16: ["Half", "f16", 5, 10, 1 << 14],
-    // TODO: why 27 not 28
     32: ["Single", "f32", 8, 23, 1 << 27],
 };
 
-const DEFAULT_BRIGHTNESS = 0.5;
+const DEFAULT_BRIGHTNESS = 0.4;
 
 const ZOOM_SPEED = 0.85;
 const ZOOM_MIN_X_RANGE = 5;
@@ -16,6 +15,14 @@ const ZOOM_MIN_X_RANGE = 5;
 const WASM_URL = "./render.wasm";
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+const showError = (msg) => {
+    const errorEl = document.getElementById("error");
+    if (!errorEl) return;
+
+    errorEl.textContent = "ERROR: " + msg;
+    errorEl.style.visibility = "visible";
+};
 
 const getElementsById = (...ids) => {
     return ids.map((id) => {
@@ -78,7 +85,7 @@ const main = async () => {
     if (!ctx) throw new Error("Canvas does not support context 2D");
 
     const {
-        init,
+        set_float_info,
         set_brightness,
         round_float,
         screen_to_float_x,
@@ -86,7 +93,7 @@ const main = async () => {
         float_to_screen_x,
         float_to_screen_y,
         move,
-        resize,
+        resize: resize_wasm,
         render,
     } = await loadWasm(ctx);
 
@@ -206,6 +213,21 @@ const main = async () => {
         });
     }
 
+    const resize = () => {
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        resize_wasm(width, height);
+    };
+
+    window.addEventListener("resize", () => {
+        resize();
+        render();
+    });
+
     const updateLabels = (() => {
         const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
 
@@ -225,35 +247,29 @@ const main = async () => {
         };
     })();
 
-    init(EXPONENT_BITS, MANTISSA_BITS);
+    const measureRenderTime = () => {
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < 100; i++) {
+            const start = Date.now();
+            render();
+            sum += Date.now() - start;
+            count++;
+        }
+        console.log(`Render time: ${Math.round(sum / count)}ms`);
+    };
+
+    set_float_info(EXPONENT_BITS, MANTISSA_BITS);
     set_brightness(DEFAULT_BRIGHTNESS);
     move(offsetX, offsetY, rangeX, rangeY);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    canvas.width = width;
-    canvas.height = height;
-    resize(width, height);
+    resize();
     render();
     updateLabels();
 
-    window.addEventListener("resize", () => {
-        width = canvas.clientWidth;
-        height = canvas.clientHeight;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        resize(width, height);
-        render();
-    });
+    // measureRenderTime();
 };
 
-main().catch((e) => {
-    const errorEl = document.getElementById("error");
-    if (!errorEl) return;
+window.addEventListener("error", ({ error }) => showError(error.message));
+window.addEventListener("unhandledrejection", ({ reason }) => showError(reason.message));
 
-    errorEl.textContent = "ERROR: " + e.message;
-    errorEl.style.visibility = "visible";
-
-    throw e;
-});
+main();

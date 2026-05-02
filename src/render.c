@@ -33,7 +33,7 @@ extern void put_image_data(u32 *, u32, u32);
         if (!(condition)) error("Assert failed at line " STRINGIFY(__LINE__) ": " #condition); \
     } while (0)
 
-// Utils
+// Math
 
 static inline f64 max(f64 a, f64 b) { return a > b ? a : b; }
 static inline f64 abs(f64 x) { return x < 0 ? -x : x; }
@@ -65,7 +65,7 @@ static u32 *image;
 
 // Functions
 
-void init(u32 _exponent_bits, u32 _mantissa_bits) {
+void set_float_info(u32 _exponent_bits, u32 _mantissa_bits) {
     exponent_bits = _exponent_bits;
     mantissa_bits = _mantissa_bits;
 }
@@ -73,6 +73,7 @@ void init(u32 _exponent_bits, u32 _mantissa_bits) {
 void set_brightness(f64 _brightness) { brightness = _brightness; }
 
 f64 round_float(f64 x) {
+    if (x == 0) return 0;
     if (exponent_bits == 8 && mantissa_bits == 23) return (f32) x;
 
     if (exponent_bits > 10) error("Unsupported exponent");
@@ -143,7 +144,7 @@ static void compute_max_error() {
             max_error_y = max(max_error_y, error_y);
         }
     }
-    if (max_error_y < 1e-9) error("Maximum Y error is too small");
+    ASSERT(max_error_x != 0 && max_error_y > 1e-9);
 }
 
 void resize(u32 _width, u32 _height) {
@@ -165,7 +166,8 @@ void resize(u32 _width, u32 _height) {
 }
 
 void render() {
-    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0 && max_error_y != 0.0 && brightness != 0.0);
+    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0 && max_error_x != 0 && max_error_y != 0
+           && brightness != 0);
 
     u32 i = 0;
     for (u32 screen_y = 0; screen_y < height; screen_y++) {
@@ -179,8 +181,7 @@ void render() {
 
             f64 error_x = abs(x - rounded_x);
             f64 error_y = abs(y - rounded_y);
-            f64 normal_error
-                = max_error_x == 0 ? error_y / max_error_y : (error_x / max_error_x + error_y / max_error_y) / 2;
+            f64 normal_error = (error_x / max_error_x + error_y / max_error_y) / 2;
 
             u8 intensity = pow(normal_error, brightness) * 0xFF;
             image[i++] = 0xFF000000 | (intensity << 16) | (intensity << 8) | intensity;
