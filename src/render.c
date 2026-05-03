@@ -54,7 +54,10 @@ static inline f64 ceil(f64 f) {
 
 // State
 
+static const f64 APPROXIMATION_THRESHOLD = 0.25;
+
 static u32 exponent_bits = 0, mantissa_bits = 0;
+static f64 brightness_m = 0, brightness_b = 0;
 static f64 brightness = 0.0;
 static f64 offset_x = 0.0, offset_y = 0.0;
 static f64 range_x = 0.0, range_y = 0.0;
@@ -70,7 +73,12 @@ void set_float_info(u32 _exponent_bits, u32 _mantissa_bits) {
     mantissa_bits = _mantissa_bits;
 }
 
-void set_brightness(f64 _brightness) { brightness = _brightness; }
+void set_brightness(f64 _brightness) {
+    brightness = _brightness;
+    // Calculate coefficients for linear approximation.
+    brightness_m = (1 - pow01(APPROXIMATION_THRESHOLD, brightness)) / (1 - APPROXIMATION_THRESHOLD);
+    brightness_b = 1 - brightness_m;
+}
 
 f64 round_float(f64 x) {
     if (x == 0) return 0;
@@ -165,6 +173,16 @@ void resize(u32 _width, u32 _height) {
     compute_max_error();
 }
 
+static u8 compute_intensity(f64 error) {
+    if (error < APPROXIMATION_THRESHOLD) {
+        // Use power function to expand lower values.
+        return pow(error, brightness) * 0xFF;
+    } else {
+        // Compressed upper values are approximated with a linear function to improve performance.
+        return (brightness_m * error + brightness_b) * 0xFF;
+    }
+}
+
 void render() {
     ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0 && max_error_x != 0 && max_error_y != 0
            && brightness != 0);
@@ -181,9 +199,9 @@ void render() {
 
             f64 error_x = abs(x - rounded_x);
             f64 error_y = abs(y - rounded_y);
-            f64 normal_error = (error_x / max_error_x + error_y / max_error_y) / 2;
+            f64 error = (error_x / max_error_x + error_y / max_error_y) / 2;
 
-            u8 intensity = pow(normal_error, brightness) * 0xFF;
+            u8 intensity = compute_intensity(error);
             image[i++] = 0xFF000000 | (intensity << 16) | (intensity << 8) | intensity;
         }
     }
