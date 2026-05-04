@@ -14,7 +14,8 @@ static_assert(sizeof(u64) == 8);
 static_assert(sizeof(f32) == 4);
 static_assert(sizeof(f64) == 8);
 
-extern void print(const char *);
+extern void print_str(const char *);
+extern void print_f64(f64);
 [[noreturn]] extern void error(const char *);
 extern void put_image_data(u32 *, u32, u32);
 
@@ -33,6 +34,7 @@ static f64 brightness_m = 0, brightness_b = 0;
 static f64 brightness = 0.0;
 static f64 offset_x = 0.0, offset_y = 0.0;
 static f64 range_x = 0.0, range_y = 0.0;
+static f64 max_range_x = 0.0, max_range_y = 0.0;
 static u32 width = 0, height = 0;
 static f64 max_error_x = 0.0, max_error_y = 0.0;
 static u64 image_size_pages = 0;
@@ -165,8 +167,11 @@ f64 round_float(f64 x) {
     return *((f64 *) &out);
 }
 
-f64 screen_to_float_x(u32 x) { return floor(offset_x + (x / (f64) width) * range_x); }
-f64 screen_to_float_y(u32 y) { return offset_y + (y / (f64) height) * range_y; }
+static inline f64 screen_to_float_x2(u32 x, f64 range) { return floor(offset_x + (x / (f64) width) * range); }
+static inline f64 screen_to_float_y2(u32 y, f64 range) { return offset_y + (y / (f64) height) * range; }
+
+f64 screen_to_float_x(u32 x) { return screen_to_float_x2(x, range_x); }
+f64 screen_to_float_y(u32 y) { return screen_to_float_y2(y, range_y); }
 
 f64 float_to_screen_x(f64 x) { return (x - offset_x) / range_x * width; }
 f64 float_to_screen_y(f64 y) { return (y - offset_y) / range_y * height; }
@@ -193,14 +198,19 @@ void set_range(f64 _range_x, f64 _range_y) {
     range_y = _range_y;
 }
 
+void set_max_range(u32 _max_range_x, u32 _max_range_y) {
+    max_range_x = _max_range_x;
+    max_range_y = _max_range_y;
+}
+
 static void compute_max_error() {
     ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0);
 
     max_error_x = max_error_y = 0;
     for (u32 screen_y = 0; screen_y < height; screen_y++) {
-        f64 y = screen_to_float_y(screen_y);
+        f64 y = screen_to_float_y2(screen_y, max_range_y);
         for (u32 screen_x = 0; screen_x < width; screen_x++) {
-            f64 x = screen_to_float_x(screen_x);
+            f64 x = screen_to_float_x2(screen_x, max_range_x);
 
             f64 rounded = round_float(x + y);
             f64 rounded_x = floor(rounded);

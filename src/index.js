@@ -59,7 +59,8 @@ const loadWasm = async (ctx) => {
         return new TextDecoder().decode(mem.subarray(ptr, end));
     };
 
-    imports.print = (ptr) => console.log(ptrToString(ptr));
+    imports.print_str = (ptr) => console.log(ptrToString(ptr));
+    imports.print_f64 = console.log;
 
     imports.error = (ptr) => {
         throw new Error(ptrToString(ptr));
@@ -92,7 +93,9 @@ const main = async () => {
         set_brightness,
         set_offset,
         set_range,
+        set_max_range,
         set_size,
+        compute_max_error,
         render,
     } = await loadWasm(ctx);
 
@@ -263,6 +266,7 @@ const main = async () => {
     set_brightness(DEFAULT_BRIGHTNESS);
     set_offset(offsetX, offsetY);
     set_range(rangeX, rangeY);
+    set_max_range(X_MAX, Y_MAX);
     resize();
     render();
     updateLabels();
