@@ -1,5 +1,3 @@
-// Types
-
 typedef int i32;
 typedef long long i64;
 typedef unsigned char u8;
@@ -16,14 +14,9 @@ static_assert(sizeof(u64) == 8);
 static_assert(sizeof(f32) == 4);
 static_assert(sizeof(f64) == 8);
 
-// JS functions
-
-extern f64 pow(f64, f64);
 extern void print(const char *);
 [[noreturn]] extern void error(const char *);
 extern void put_image_data(u32 *, u32, u32);
-
-// Assert
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
@@ -33,9 +26,20 @@ extern void put_image_data(u32 *, u32, u32);
         if (!(condition)) error("Assert failed at line " STRINGIFY(__LINE__) ": " #condition); \
     } while (0)
 
-// Math
+static const f64 APPROXIMATION_THRESHOLD = 0.25;
+
+static u32 exponent_bits = 0, mantissa_bits = 0;
+static f64 brightness_m = 0, brightness_b = 0;
+static f64 brightness = 0.0;
+static f64 offset_x = 0.0, offset_y = 0.0;
+static f64 range_x = 0.0, range_y = 0.0;
+static u32 width = 0, height = 0;
+static f64 max_error_x = 0.0, max_error_y = 0.0;
+static u64 image_size_pages = 0;
+static u32 *image;
 
 static inline f64 max(f64 a, f64 b) { return a > b ? a : b; }
+
 static inline f64 abs(f64 x) { return x < 0 ? -x : x; }
 
 static inline f64 floor(f64 f) {
@@ -52,21 +56,54 @@ static inline f64 ceil(f64 f) {
     return i > 0 && i != f ? i + 1 : i;
 }
 
-// State
+// Approximation of power fuction for x in [0, 1], y in [0.1, 1] with precision of 1/256.
+static f64 pow01(f64 x, f64 y) {
+    if (x == 0 || x == 1 || y == 1) return x;
+    if (y == 0.5) return __builtin_sqrt(x);
 
-static const f64 APPROXIMATION_THRESHOLD = 0.25;
+    const f64 LN_2 = 0.69314718055994528622676398299518041312694549560546875;
 
-static u32 exponent_bits = 0, mantissa_bits = 0;
-static f64 brightness_m = 0, brightness_b = 0;
-static f64 brightness = 0.0;
-static f64 offset_x = 0.0, offset_y = 0.0;
-static f64 range_x = 0.0, range_y = 0.0;
-static u32 width = 0, height = 0;
-static f64 max_error_x = 0.0, max_error_y = 0.0;
-static u64 image_size_pages = 0;
-static u32 *image;
+    u64 bits = *(u64 *) &x;
+    i32 e = ((bits >> 52) & 0x7FF) - 1023;
 
-// Functions
+    // Exponent is so small that for any y the result is rounded to 0.
+    if (e <= -80) return 0;
+
+    // Get mantissa as double by setting exponent to 0.
+    bits = (bits & 0x000FFFFFFFFFFFFFULL) | 0x3FF0000000000000ULL;
+    f64 m = *(f64 *) &bits;
+
+    // The goal is to find x^y, which can be rewritten as e^(ln(x) * y).
+    // Compute ln(x):
+    // Double can be written as      x = 2^e * m, m in [1, 2)
+    // Then                      ln(x) = e * ln(2) + ln(m)
+    // Rewrite m to reduce range     u = (m - 1) / (m + 1), u in [0, 1/3)
+    // And                           m = (1 + u) / (1 - u)
+    // Then                      ln(m) = ln(1 + u) - ln(1 - u)
+    // Compute ln(1 + u) - ln(1 - u) using Taylor series factored with Horner's method.
+    f64 u = (m - 1) / (m + 1);
+    f64 v = u * u;
+    f64 ln_m = 2 * u * (1 + v * (1 / 3.0 + v * (1 / 5.0)));
+    f64 ln_x = e * LN_2 + ln_m;
+
+    // Compute e^(ln(x) * y):
+    // Let                    t = ln(x) * y, t in (-inf, 0]
+    // Rewrite the exponent   t = k * ln(2) + r, k is negative integer, |r| <= ln(2)/2
+    // Then                 e^t = 2^k * e^r
+    // Where                  k = round(t / ln(2)) = ceil(t / ln(2) - 0.5)
+    // And                    r = t - k * ln(2)
+    // Since k is negative integer, truncation acts as an implicit ceil.
+    // Integer power of 2 is just a shift and now exponential is computed on a value with smaller range.
+    // Compute e^r using Taylor series factored with Horner's method.
+    f64 t = y * ln_x;
+    i64 k = t / LN_2 - 0.5;
+    f64 r = t - k * LN_2;
+    f64 exp_r = 1 + r * (1 + r * (1 / 2.0 + r * (1 / 6.0 + r * (1 / 24.0))));
+
+    // Compute 2^k * e^r by directly adding k to the exponent field.
+    bits = *((u64 *) &exp_r) + (((u64) k) << 52);
+    return *(f64 *) &bits;
+}
 
 void set_float_info(u32 _exponent_bits, u32 _mantissa_bits) {
     exponent_bits = _exponent_bits;
@@ -176,7 +213,7 @@ void resize(u32 _width, u32 _height) {
 static u8 compute_intensity(f64 error) {
     if (error < APPROXIMATION_THRESHOLD) {
         // Use power function to expand lower values.
-        return pow(error, brightness) * 0xFF;
+        return pow01(error, brightness) * 0xFF;
     } else {
         // Compressed upper values are approximated with a linear function to improve performance.
         return (brightness_m * error + brightness_b) * 0xFF;
