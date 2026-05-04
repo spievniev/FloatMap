@@ -85,15 +85,16 @@ const main = async () => {
     if (!ctx) throw new Error("Canvas does not support context 2D");
 
     const {
-        set_float_info,
-        set_brightness,
         round_float,
         screen_to_float_x,
         screen_to_float_y,
         float_to_screen_x,
         float_to_screen_y,
-        move,
-        resize: resize_wasm,
+        set_float_info,
+        set_brightness,
+        set_offset,
+        set_range,
+        set_size,
         render,
     } = await loadWasm(ctx);
 
@@ -157,7 +158,7 @@ const main = async () => {
             startX = e.offsetX;
             startY = e.offsetY;
 
-            move(offsetX, offsetY, rangeX, rangeY);
+            set_offset(offsetX, offsetY);
             render();
             updateLabels();
         });
@@ -184,14 +185,15 @@ const main = async () => {
 
             rangeX = zoom * X_MAX;
             rangeY = zoom * Y_MAX;
+            set_range(rangeX, rangeY);
 
             const shiftX = ((float_to_screen_x(floatX) - screenX) / width) * rangeX;
             const shiftY = ((float_to_screen_y(floatY) - screenY) / height) * rangeY;
 
             offsetX = clamp(offsetX + shiftX, 0, X_MAX - rangeX);
             offsetY = clamp(offsetY + shiftY, 0, Y_MAX - rangeY);
+            set_offset(offsetX, offsetY);
 
-            move(offsetX, offsetY, rangeX, rangeY);
             render();
             updateLabels();
         });
@@ -220,7 +222,7 @@ const main = async () => {
         canvas.width = width;
         canvas.height = height;
 
-        resize_wasm(width, height);
+        set_size(width, height);
     };
 
     window.addEventListener("resize", () => {
@@ -261,7 +263,8 @@ const main = async () => {
 
     set_float_info(EXPONENT_BITS, MANTISSA_BITS);
     set_brightness(DEFAULT_BRIGHTNESS);
-    move(offsetX, offsetY, rangeX, rangeY);
+    set_offset(offsetX, offsetY);
+    set_range(rangeX, rangeY);
     resize();
     render();
     updateLabels();

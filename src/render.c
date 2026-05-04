@@ -105,18 +105,6 @@ static f64 pow01(f64 x, f64 y) {
     return *(f64 *) &bits;
 }
 
-void set_float_info(u32 _exponent_bits, u32 _mantissa_bits) {
-    exponent_bits = _exponent_bits;
-    mantissa_bits = _mantissa_bits;
-}
-
-void set_brightness(f64 _brightness) {
-    brightness = _brightness;
-    // Calculate coefficients for linear approximation.
-    brightness_m = (1 - pow01(APPROXIMATION_THRESHOLD, brightness)) / (1 - APPROXIMATION_THRESHOLD);
-    brightness_b = 1 - brightness_m;
-}
-
 f64 round_float(f64 x) {
     if (x == 0) return 0;
     if (exponent_bits == 8 && mantissa_bits == 23) return (f32) x;
@@ -162,9 +150,24 @@ f64 screen_to_float_y(u32 y) { return offset_y + (y / (f64) height) * range_y; }
 f64 float_to_screen_x(f64 x) { return (x - offset_x) / range_x * width; }
 f64 float_to_screen_y(f64 y) { return (y - offset_y) / range_y * height; }
 
-void move(f64 _offset_x, f64 _offset_y, f64 _range_x, f64 _range_y) {
+void set_float_info(u32 _exponent_bits, u32 _mantissa_bits) {
+    exponent_bits = _exponent_bits;
+    mantissa_bits = _mantissa_bits;
+}
+
+void set_brightness(f64 _brightness) {
+    brightness = _brightness;
+    // Calculate coefficients for linear approximation.
+    brightness_m = (1 - pow01(APPROXIMATION_THRESHOLD, brightness)) / (1 - APPROXIMATION_THRESHOLD);
+    brightness_b = 1 - brightness_m;
+}
+
+void set_offset(f64 _offset_x, f64 _offset_y) {
     offset_x = _offset_x;
     offset_y = _offset_y;
+}
+
+void set_range(f64 _range_x, f64 _range_y) {
     range_x = _range_x;
     range_y = _range_y;
 }
@@ -192,7 +195,7 @@ static void compute_max_error() {
     ASSERT(max_error_x != 0 && max_error_y > 1e-9);
 }
 
-void resize(u32 _width, u32 _height) {
+void set_size(u32 _width, u32 _height) {
     const u64 PAGE_SIZE = 64 * 1024;
 
     width = _width;
