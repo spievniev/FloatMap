@@ -59,8 +59,6 @@ const loadWasm = async (ctx) => {
         return new TextDecoder().decode(mem.subarray(ptr, end));
     };
 
-    imports.pow = Math.pow;
-
     imports.print = (ptr) => console.log(ptrToString(ptr));
 
     imports.error = (ptr) => {

@@ -109,11 +109,12 @@ f64 round_float(f64 x) {
     if (x == 0) return 0;
     if (exponent_bits == 8 && mantissa_bits == 23) return (f32) x;
 
-    if (exponent_bits > 10) error("Unsupported exponent");
+    if (exponent_bits > 8) error("Unsupported exponent");
     if (mantissa_bits > 19) error("Unsupported mantissa");
 
-    i32 min_exponent = -(1 << (exponent_bits - 1));
     i32 max_exponent = (1 << (exponent_bits - 1)) - 1;
+    i32 min_exponent = 1 - max_exponent;
+    i32 min_subnormal_exponent = min_exponent - mantissa_bits;
     u32 max_mantissa = (1 << mantissa_bits) - 1;
 
     u32 upper = *((u64 *) &x) >> 32;
@@ -122,6 +123,7 @@ f64 round_float(f64 x) {
     i32 exponent = ((upper >> 20) & 0x7FF) - 1023;
     u32 mantissa = (upper & 0xFFFFF) >> (20 - mantissa_bits);
 
+    // Round up if the next mantissa bit is set.
     if (upper & (1 << (20 - mantissa_bits - 1))) {
         mantissa++;
 
@@ -131,12 +133,31 @@ f64 round_float(f64 x) {
         }
     }
 
-    if (exponent < min_exponent) {
-        mantissa >>= min_exponent - exponent;
-        exponent = min_exponent;
-    } else if (exponent > max_exponent) {
-        mantissa = max_mantissa;
+    if (exponent > max_exponent) {
         exponent = max_exponent;
+        mantissa = max_mantissa;
+    } else if (exponent < min_subnormal_exponent) {
+        // Less than subnormal, round either to 0 or to the minimum value.
+        f64 min_value = 1.0 / (1 << -min_subnormal_exponent);
+        exponent = x > min_value / 2 ? min_subnormal_exponent : -1023;
+        mantissa = 0;
+    } else if (exponent < min_exponent) {
+        // Subnormal value.
+        u32 shift = min_exponent - exponent;
+        if ((mantissa >> (shift - 1)) & 1) {
+            // Round up: include implicit 1, shift, increment.
+            mantissa = (((1 << mantissa_bits) | mantissa) >> shift) + 1;
+            exponent = min_exponent;
+            // Normalize back to implicit one form.
+            while ((mantissa & (1 << mantissa_bits)) == 0) {
+                mantissa <<= 1;
+                exponent--;
+            }
+            mantissa &= ~(1 << mantissa_bits);
+        } else {
+            // Clear truncated bits.
+            mantissa &= ~((1 << shift) - 1);
+        }
     }
 
     u32 out_upper = sign | ((exponent + 1023) << 20) | (mantissa << (20 - mantissa_bits));
