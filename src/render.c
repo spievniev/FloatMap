@@ -34,13 +34,11 @@ static f64 brightness_m = 0, brightness_b = 0;
 static f64 brightness = 0.0;
 static f64 offset_x = 0.0, offset_y = 0.0;
 static f64 range_x = 0.0, range_y = 0.0;
-static f64 max_range_x = 0.0, max_range_y = 0.0;
 static u32 width = 0, height = 0;
-static f64 max_error_x = 0.0, max_error_y = 0.0;
+static const f64 max_error_y = 1.0;
+static f64 max_error_x = 0.0;
 static u64 image_size_pages = 0;
 static u32 *image;
-
-static inline f64 max(f64 a, f64 b) { return a > b ? a : b; }
 
 static inline f64 abs(f64 x) { return x < 0 ? -x : x; }
 
@@ -167,18 +165,16 @@ f64 round_float(f64 x) {
     return *((f64 *) &out);
 }
 
-static inline f64 screen_to_float_x2(u32 x, f64 range) { return floor(offset_x + (x / (f64) width) * range); }
-static inline f64 screen_to_float_y2(u32 y, f64 range) { return offset_y + (y / (f64) height) * range; }
-
-f64 screen_to_float_x(u32 x) { return screen_to_float_x2(x, range_x); }
-f64 screen_to_float_y(u32 y) { return screen_to_float_y2(y, range_y); }
+f64 screen_to_float_x(u32 x) { return floor(offset_x + (x / (f64) width) * range_x); }
+f64 screen_to_float_y(u32 y) { return offset_y + (y / (f64) height) * range_y; }
 
 f64 float_to_screen_x(f64 x) { return (x - offset_x) / range_x * width; }
 f64 float_to_screen_y(f64 y) { return (y - offset_y) / range_y * height; }
 
-void set_float_info(u32 _exponent_bits, u32 _mantissa_bits) {
+void init(u32 _exponent_bits, u32 _mantissa_bits, f64 _max_error_x) {
     exponent_bits = _exponent_bits;
     mantissa_bits = _mantissa_bits;
+    max_error_x = _max_error_x;
 }
 
 void set_brightness(f64 _brightness) {
@@ -198,34 +194,6 @@ void set_range(f64 _range_x, f64 _range_y) {
     range_y = _range_y;
 }
 
-void set_max_range(u32 _max_range_x, u32 _max_range_y) {
-    max_range_x = _max_range_x;
-    max_range_y = _max_range_y;
-}
-
-static void compute_max_error() {
-    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0);
-
-    max_error_x = max_error_y = 0;
-    for (u32 screen_y = 0; screen_y < height; screen_y++) {
-        f64 y = screen_to_float_y2(screen_y, max_range_y);
-        for (u32 screen_x = 0; screen_x < width; screen_x++) {
-            f64 x = screen_to_float_x2(screen_x, max_range_x);
-
-            f64 rounded = round_float(x + y);
-            f64 rounded_x = floor(rounded);
-            f64 rounded_y = rounded - rounded_x;
-
-            f64 error_x = abs(x - rounded_x);
-            f64 error_y = abs(y - rounded_y);
-
-            max_error_x = max(max_error_x, error_x);
-            max_error_y = max(max_error_y, error_y);
-        }
-    }
-    ASSERT(max_error_x != 0 && max_error_y > 1e-9);
-}
-
 void set_size(u32 _width, u32 _height) {
     const u64 PAGE_SIZE = 64 * 1024;
 
@@ -240,8 +208,6 @@ void set_size(u32 _width, u32 _height) {
         if (image_size_pages == 0) image = (u32 *) (result * PAGE_SIZE);
         image_size_pages = new_size_pages;
     }
-
-    compute_max_error();
 }
 
 static u8 compute_intensity(f64 error) {
@@ -255,8 +221,8 @@ static u8 compute_intensity(f64 error) {
 }
 
 void render() {
-    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0 && max_error_x != 0 && max_error_y != 0
-           && brightness != 0);
+    ASSERT(width != 0 && height != 0 && range_x != 0 && range_y != 0 && brightness != 0 && exponent_bits != 0
+           && mantissa_bits != 0 && max_error_x != 0 && max_error_y != 0);
 
     u32 i = 0;
     for (u32 screen_y = 0; screen_y < height; screen_y++) {

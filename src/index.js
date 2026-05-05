@@ -77,6 +77,7 @@ const loadWasm = async (ctx) => {
 
 const main = async () => {
     const [DISPLAY_NAME, SELECTED_ELEMENT_ID, EXPONENT_BITS, MANTISSA_BITS, X_MAX] = getFloatInfo();
+    const MAX_ERROR_X = Math.ceil(X_MAX / (1 << (MANTISSA_BITS + 2)));
     const Y_MAX = 1;
 
     const [canvas] = getElementsById("canvas");
@@ -89,11 +90,10 @@ const main = async () => {
         screen_to_float_y,
         float_to_screen_x,
         float_to_screen_y,
-        set_float_info,
+        init,
         set_brightness,
         set_offset,
         set_range,
-        set_max_range,
         set_size,
         render,
     } = await loadWasm(ctx);
@@ -261,11 +261,10 @@ const main = async () => {
         render();
     });
 
-    set_float_info(EXPONENT_BITS, MANTISSA_BITS);
+    init(EXPONENT_BITS, MANTISSA_BITS, MAX_ERROR_X);
     set_brightness(DEFAULT_BRIGHTNESS);
     set_offset(offsetX, offsetY);
     set_range(rangeX, rangeY);
-    set_max_range(X_MAX, Y_MAX);
     resize();
     render();
     updateLabels();
