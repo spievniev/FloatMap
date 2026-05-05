@@ -104,6 +104,31 @@ const main = async () => {
     let rangeY = Y_MAX;
     let width, height;
 
+    const resize = () => {
+        // Remove attributes to allow CSS to recalculate size.
+        canvas.removeAttribute("width");
+        canvas.removeAttribute("height");
+
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+
+        // Adjust canvas size to avoid aliasing by changing sampling period.
+        const PERIOD_SHIFT = 0.5;
+        const samplingPeriod = rangeX / canvas.clientWidth;
+        const aliasingPeriod = Math.round(samplingPeriod / 2) * 2;
+        if (samplingPeriod > 1 && Math.abs(samplingPeriod - aliasingPeriod) < PERIOD_SHIFT) {
+            const ratio = width / height;
+            const shift = (PERIOD_SHIFT * width) / (rangeX / width + PERIOD_SHIFT);
+            width += shift * (samplingPeriod < aliasingPeriod ? +1 : -1);
+            height = width / ratio;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        set_size(width, height);
+    };
+
     const render = (() => {
         let handle = null;
         return () => {
@@ -256,20 +281,6 @@ const main = async () => {
             floatEl.textContent = `${DISPLAY_NAME}:${SPACE} ${round_float(f)}`;
         });
     }
-
-    const resize = () => {
-        // Remove attributes to allow CSS to recalculate size.
-        canvas.removeAttribute("width");
-        canvas.removeAttribute("height");
-
-        width = canvas.clientWidth;
-        height = canvas.clientHeight;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        set_size(width, height);
-    };
 
     window.addEventListener("resize", () => {
         resize();
