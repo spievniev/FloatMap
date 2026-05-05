@@ -7,6 +7,16 @@
         <title>Float Accuracy Heatmap</title>
     </head>
     <style>
+        html {
+            font-size: 62.5%;
+        }
+
+        @media (max-width: 1024px) {
+            html {
+                font-size: 50%;
+            }
+        }
+
         * {
             margin: 0;
             box-sizing: border-box;
@@ -32,9 +42,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
+            font-size: 2.4rem;
             font-weight: bolder;
             text-align: center;
+        }
+
+        h3 {
+            font-size: 1.8rem;
         }
 
         #github {
@@ -64,8 +78,9 @@
         }
 
         .subtitle {
-            margin-top: 5px;
-            font-size: 14px;
+            margin-top: 0.5rem;
+            font-size: 1.4rem;
+            text-align: center;
         }
 
         .canvasContainer {
@@ -79,11 +94,11 @@
         }
 
         .tick {
-            font-size: 12px;
+            font-size: 1.2rem;
         }
 
         .label {
-            font-size: 14px;
+            font-size: 1.4rem;
         }
 
         .yAxis {
@@ -124,15 +139,15 @@
         }
 
         .superscript {
-            font-size: 10px;
-            transform: translate(1px, -2px);
+            font-size: 1rem;
+            transform: translate(0.1rem, -0.2rem);
         }
 
         .footer {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            margin-top: 16px;
+            margin-top: 1.6rem;
         }
 
         .controls {
@@ -141,8 +156,14 @@
             justify-content: space-between;
         }
 
+        @media (max-width: 1024px) {
+            .controls {
+                flex-direction: column;
+            }
+        }
+
         .controlsColumn > * {
-            margin-bottom: 4px;
+            margin-bottom: 0.4rem;
         }
 
         .row {
@@ -150,16 +171,25 @@
             align-items: center;
         }
 
+        .floatValue {
+            font-size: 1.5rem;
+        }
+
+        .floatType {
+            font-size: 1.3rem;
+        }
+
         .controlLabel {
-            margin-right: 12px;
+            font-size: 1.5rem;
+            margin-right: 1.2rem;
         }
 
         .controlRadio {
-            margin-right: 4px;
+            margin-right: 0.4rem;
         }
 
         .controlRadio:not(:first-of-type) {
-            margin-left: 16px;
+            margin-left: 1.6rem;
         }
 
         #brightness {
@@ -167,7 +197,7 @@
         }
 
         .footnote {
-            font-size: 10px;
+            font-size: 1rem;
             margin-bottom: 6px;
         }
     </style>
@@ -203,18 +233,18 @@
             <div class="spacer footer">
                 <div class="controls">
                     <div class="controlsColumn">
-                        <p id="double">Double: -</p>
-                        <p id="float">Float:&nbsp; -</p>
+                        <p class="floatValue" id="double">Double: -</p>
+                        <p class="floatValue" id="float">Float:&nbsp; -</p>
                     </div>
                     <div class="controlsColumn">
                         <div class="row">
                             <p class="controlLabel">Float type:</p>
                             <input type="radio" id="f8" name="f" class="controlRadio" />
-                            <label for="f8">8-bit (fp8)</label>
+                            <label class="floatType" for="f8">8-bit (fp8)</label>
                             <input type="radio" id="f16" name="f" class="controlRadio" />
-                            <label for="f16">16-bit (half)</label>
+                            <label class="floatType" for="f16">16-bit (half)</label>
                             <input type="radio" id="f32" name="f" class="controlRadio" />
-                            <label for="f32">32-bit (single)</label>
+                            <label class="floatType" for="f32">32-bit (single)</label>
                         </div>
                         <div class="row">
                             <label for="brightness" class="controlLabel">Brightness:</label>

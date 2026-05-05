@@ -205,7 +205,7 @@ void set_size(u32 _width, u32 _height) {
     }
 }
 
-static u8 compute_intensity(f64 error) {
+static inline u8 compute_intensity(f64 error) {
     if (error < APPROXIMATION_THRESHOLD) {
         // Use power function to expand lower values.
         return pow01(error, brightness) * 0xFF;
