@@ -258,6 +258,10 @@ const main = async () => {
     }
 
     const resize = () => {
+        // Remove attributes to allow CSS to recalculate size.
+        canvas.removeAttribute("width");
+        canvas.removeAttribute("height");
+
         width = canvas.clientWidth;
         height = canvas.clientHeight;
 
