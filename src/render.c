@@ -144,19 +144,14 @@ f64 round_float(f64 x) {
     } else if (exponent < min_exponent) {
         // Subnormal value.
         u32 shift = min_exponent - exponent;
-        if ((mantissa >> (shift - 1)) & 1) {
-            // Round up: include implicit 1, shift, increment.
-            mantissa = (((1 << mantissa_bits) | mantissa) >> shift) + 1;
-            exponent = min_exponent;
-            // Normalize back to implicit one form.
-            while ((mantissa & (1 << mantissa_bits)) == 0) {
-                mantissa <<= 1;
-                exponent--;
-            }
-            mantissa &= ~(1 << mantissa_bits);
+        bool round_up = (mantissa >> (shift - 1)) & 1;
+        if (round_up && (mantissa >> shift) == (1 << (mantissa_bits - shift)) - 1) {
+            mantissa = 0;
+            exponent++;
         } else {
             // Clear truncated bits.
             mantissa &= ~((1 << shift) - 1);
+            if (round_up) mantissa += 1 << shift;
         }
     }
 
