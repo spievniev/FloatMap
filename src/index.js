@@ -95,7 +95,6 @@ const main = async () => {
         set_range,
         set_max_range,
         set_size,
-        compute_max_error,
         render,
     } = await loadWasm(ctx);
 
@@ -104,6 +103,37 @@ const main = async () => {
     let rangeX = X_MAX;
     let rangeY = Y_MAX;
     let width, height;
+
+    const measureRenderTime = () => {
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < 100; i++) {
+            const start = Date.now();
+            render();
+            sum += Date.now() - start;
+            count++;
+        }
+        console.log(`Render time: ${Math.round(sum / count)}ms`);
+    };
+
+    const updateLabels = (() => {
+        const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
+
+        const yLabel = (y) => {
+            const str = y.toString();
+            if (str.length === 1) return str;
+            return str.substring(1, 7);
+        };
+
+        const xLabel = (x) => Math.floor(x);
+
+        return () => {
+            yMinEl.textContent = yLabel(screen_to_float_y(0));
+            yMaxEl.textContent = yLabel(screen_to_float_y(height));
+            xMinEl.textContent = xLabel(screen_to_float_x(0));
+            xMaxEl.textContent = xLabel(screen_to_float_x(width));
+        };
+    })();
 
     // Float buttons controller
     {
@@ -230,37 +260,6 @@ const main = async () => {
         resize();
         render();
     });
-
-    const updateLabels = (() => {
-        const [yMinEl, yMaxEl, xMinEl, xMaxEl] = getElementsById("yMin", "yMax", "xMin", "xMax");
-
-        const yLabel = (y) => {
-            const str = y.toString();
-            if (str.length === 1) return str;
-            return str.substring(1, 7);
-        };
-
-        const xLabel = (x) => Math.floor(x);
-
-        return () => {
-            yMinEl.textContent = yLabel(screen_to_float_y(0));
-            yMaxEl.textContent = yLabel(screen_to_float_y(height));
-            xMinEl.textContent = xLabel(screen_to_float_x(0));
-            xMaxEl.textContent = xLabel(screen_to_float_x(width));
-        };
-    })();
-
-    const measureRenderTime = () => {
-        let sum = 0;
-        let count = 0;
-        for (let i = 0; i < 100; i++) {
-            const start = Date.now();
-            render();
-            sum += Date.now() - start;
-            count++;
-        }
-        console.log(`Render time: ${Math.round(sum / count)}ms`);
-    };
 
     set_float_info(EXPONENT_BITS, MANTISSA_BITS);
     set_brightness(DEFAULT_BRIGHTNESS);
