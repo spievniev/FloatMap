@@ -95,7 +95,7 @@ const main = async () => {
         set_offset,
         set_range,
         set_size,
-        render,
+        render: render_frame,
     } = await loadWasm(ctx);
 
     let offsetX = 0;
@@ -104,12 +104,23 @@ const main = async () => {
     let rangeY = Y_MAX;
     let width, height;
 
+    const render = (() => {
+        let handle = null;
+        return () => {
+            if (handle !== null) cancelAnimationFrame(handle);
+            handle = requestAnimationFrame(() => {
+                render_frame();
+                handle = null;
+            });
+        };
+    })();
+
     const measureRenderTime = () => {
         let sum = 0;
         let count = 0;
         for (let i = 0; i < 100; i++) {
             const start = Date.now();
-            render();
+            render_frame();
             sum += Date.now() - start;
             count++;
         }
