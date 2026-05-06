@@ -121,6 +121,9 @@ const main = async () => {
             const shift = (PERIOD_SHIFT * width) / (rangeX / width + PERIOD_SHIFT);
             width += shift * (samplingPeriod < aliasingPeriod ? +1 : -1);
             height = width / ratio;
+
+            width = Math.round(width);
+            height = Math.round(height);
         }
 
         canvas.width = width;
@@ -128,6 +131,9 @@ const main = async () => {
 
         set_size(width, height);
     };
+
+    const offsetToScreenX = (x) => Math.round((x / canvas.clientWidth) * width);
+    const offsetToScreenY = (y) => height - 1 - Math.round((y / canvas.clientHeight) * height);
 
     const render = (() => {
         let handle = null;
@@ -236,34 +242,39 @@ const main = async () => {
         const MIN_ZOOM = ZOOM_MIN_X_RANGE / X_MAX;
 
         let zoom = 1;
-        canvas.addEventListener("wheel", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        canvas.addEventListener(
+            "wheel",
+            (e) => {
+                e.preventDefault();
+                e.stopPropagation();
 
-            const delta = e.deltaX === 0 ? (e.deltaY === 0 ? e.deltaZ : e.deltaY) : e.deltaX;
-            const mult = delta < 0 ? ZOOM_SPEED : 1 / ZOOM_SPEED;
-            zoom = clamp(zoom * mult, MIN_ZOOM, 1);
+                const screenX = offsetToScreenX(e.offsetX);
+                const screenY = offsetToScreenY(e.offsetY);
 
-            const screenX = e.offsetX;
-            const screenY = height - 1 - e.offsetY;
+                const floatX = screen_to_float_x(screenX);
+                const floatY = screen_to_float_y(screenY);
 
-            const floatX = screen_to_float_x(screenX);
-            const floatY = screen_to_float_y(screenY);
+                const mult = e.deltaY < 0 ? ZOOM_SPEED : 1 / ZOOM_SPEED;
+                const newZoom = clamp(zoom * mult, MIN_ZOOM, 1);
+                if (zoom == newZoom) return;
+                zoom = newZoom;
 
-            rangeX = zoom * X_MAX;
-            rangeY = zoom * Y_MAX;
-            set_range(rangeX, rangeY);
+                rangeX = zoom * X_MAX;
+                rangeY = zoom * Y_MAX;
+                set_range(rangeX, rangeY);
 
-            const shiftX = ((float_to_screen_x(floatX) - screenX) / width) * rangeX;
-            const shiftY = ((float_to_screen_y(floatY) - screenY) / height) * rangeY;
+                const shiftX = ((float_to_screen_x(floatX) - screenX) / width) * rangeX;
+                const shiftY = ((float_to_screen_y(floatY) - screenY) / height) * rangeY;
 
-            offsetX = clamp(offsetX + shiftX, 0, X_MAX - rangeX);
-            offsetY = clamp(offsetY + shiftY, 0, Y_MAX - rangeY);
-            set_offset(offsetX, offsetY);
+                offsetX = clamp(offsetX + shiftX, 0, X_MAX - rangeX);
+                offsetY = clamp(offsetY + shiftY, 0, Y_MAX - rangeY);
+                set_offset(offsetX, offsetY);
 
-            render();
-            updateLabels();
-        });
+                render();
+                updateLabels();
+            },
+            { passive: false },
+        );
     }
 
     // Mouseover info
@@ -273,10 +284,7 @@ const main = async () => {
 
         const [floatEl, doubleEl] = getElementsById("float", "double");
         canvas.addEventListener("mousemove", (e) => {
-            const x = screen_to_float_x(e.offsetX);
-            const y = screen_to_float_y(height - 1 - e.offsetY);
-            const f = x + y;
-
+            const f = screen_to_float_x(offsetToScreenX(e.offsetX)) + screen_to_float_y(offsetToScreenY(e.offsetY));
             doubleEl.textContent = `Double: ${f}`;
             floatEl.textContent = `${DISPLAY_NAME}:${SPACE} ${round_float(f)}`;
         });
